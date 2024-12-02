@@ -1,0 +1,47 @@
+.shadow-class {
+  box-shadow: 2px 15px 12px rgb(218, 218, 218);
+}
+
+h1 {
+  text-align: center;
+  font-size: 45px;
+  font-family: "Trebuchet MS", sans-serif;
+  color: rgb(6, 0, 32);
+  padding: 40px;
+}
+
+.list {
+  display: flex;
+  justify-content: right;
+  width: 100%;
+}
+
+.list ul li {
+  list-style: none;
+  margin: 42px;
+  text-align: center;
+}
+
+a {
+  text-decoration: none;
+  color: rgb(0, 0, 0);
+  font-size: 20px;
+  font-family: "Trebuchet MS", sans-serif;
+  padding: 7px 15px;
+  background-color: transparent;
+}
+
+a:hover {
+  background-color: #0cdda2;
+  color: rgb(248, 3, 3);
+  width: "auto";
+  border-radius: 25px;
+}
+
+a:active {
+  color: #fa0707;
+}
+
+body {
+  font-family: var(--font-family);
+}

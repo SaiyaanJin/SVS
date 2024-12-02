@@ -1,0 +1,38 @@
+.mypanel .p-panel-header {
+	background-color: #0743e8;
+	color: #ffffff;
+}
+
+.p-graph {
+	background-color: #0743e8;
+}
+.Percent {
+	color: red !important;
+}
+.Name {
+	color: green !important;
+}
+.Percent::after {
+	content: " %";
+}
+.per {
+	color: blue;
+}
+
+.otherPercent::after {
+	content: " %";
+}
+/* {
+  global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  Feeder_Name: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  // To_Feeder: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  // Feeder_From: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  to_end_avg_val: {
+    value: 3,
+    matchMode: FilterMatchMode.GREATER_THAN_OR_EQUAL_TO,
+  },
+  far_end_avg_val: {
+    value: 3,
+    matchMode: FilterMatchMode.GREATER_THAN_OR_EQUAL_TO,
+  },
+} */

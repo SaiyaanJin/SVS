@@ -1,0 +1,46 @@
+.test {
+	max-width: auto !important;
+	justify-content: space-around !important;
+}
+
+element.style {
+	justify-content: space-evenly !important;
+}
+
+.loader {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	position: fixed;
+	background-image: url("./GI-Logo1.png");
+	background-repeat: no-repeat;
+	background-size: 11%;
+	background-position: center center;
+	z-index: 2;
+	margin-top: -10%;
+}
+
+.spinner {
+	width: 230px;
+	height: 230px;
+	border: 14px solid;
+	border-color: #f15922 transparent #0ca20c transparent;
+	border-radius: 100%;
+	animation: spin-anim 1.5s linear infinite;
+}
+
+
+@keyframes spin-anim {
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
+}
+
+.p-name {
+	color: #0ca20c;
+}
