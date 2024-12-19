@@ -1120,7 +1120,15 @@ def letters_zip():
 
     gen_all_letters()
 
-    all_files = []
+    # # Parent Directory
+    # directory = "D:/Applications/SVS/svs_be/output/ZipFiles"
+    # # Remove the Directory
+    # try:
+    #     print("start")
+    #     shutil.rmtree(directory)
+    #     print("Done")
+    # except:
+    #     pass
 
     startDate = request.args['startDate']
     startDate_obj = datetime.strptime(startDate, '%d-%m-%Y')
