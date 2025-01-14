@@ -119,10 +119,18 @@ Scada_database, meter_table, mapping_table = ScadaCollection()
 
 def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
 
+    startDateObj = datetime.strptime(startDate, "%Y-%m-%d")
+    endDateObj = datetime.strptime(endDate, "%Y-%m-%d")
+
+    global Global_date
+    global Global_error_list
+    global Global_letter_data
+    global Global_data
+
     CONNECTION_STRING = "mongodb://10.3.101.179:1434"
     client = MongoClient(CONNECTION_STRING)
     db = client['meterDataArchival']
-    Data_Table = db["meterData"+str(startDate_obj.year)]
+    
 
     cursor = mapping_table.find(
         filter={}, projection={'_id': 0})
@@ -139,19 +147,14 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
         except:
             pass
 
-    startDateObj = datetime.strptime(startDate, "%Y-%m-%d")
-    endDateObj = datetime.strptime(endDate, "%Y-%m-%d")
-
     allDateTime = [dt.strftime("%d-%m-%Y %H:%M:%S") for dt in
-                   datetime_range(startDateObj, endDateObj,
-                                  timedelta(minutes=time))]
+                datetime_range(startDateObj, endDateObj,
+                                timedelta(minutes=time))]
 
     final_data_to_send = {'Date_Time': allDateTime}
     final_data_to_send1 = []
 
     df1 = pd.DataFrame.from_dict({'Date_Time': allDateTime})
-
-    global Global_date
 
     Global_date = df1
 
@@ -172,7 +175,6 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
     PG_odisha_project = []
 
     error_names= []
-    global Global_error_list
 
     for item in keydata:
 
@@ -205,7 +207,7 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
         endDateObj = datetime.strptime(endDate, "%Y-%m-%d")
 
         date_range = [startDateObj+timedelta(days=x)
-                      for x in range((endDateObj-startDateObj).days+1)]
+                    for x in range((endDateObj-startDateObj).days+1)]
 
         if ((Key_To_End.split(":")[0] != "No Key" or Key_To_End.split(":")[0] != "Duplicate Key") and (Meter_To_End.split(":")[0] != "No Key" or Meter_To_End.split(":")[0] != "Duplicate Key")):
             try:
@@ -286,6 +288,8 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
                             'data': 1,
                             'date': 1,
                         }
+
+                        Data_Table = db["meterData"+str(it.year)]
 
                         cursor2 = Data_Table.find(
                             filter=filter, projection=project)
@@ -514,6 +518,8 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
                             'data': 1,
                             'date': 1,
                         }
+
+                        Data_Table = db["meterData"+str(it.year)]
 
                         cursor2 = Data_Table.find(
                             filter=filter, projection=project)
@@ -1217,66 +1223,6 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
                 lookupDictionary[constituent_name].append(
                     [semvsscada_dict['Feeder_Name'],1])
 
-        # if avg_scada_to <= 50 and semvsscada_dict['to_end_avg_val'] > 10:
-
-        #     constituent_name = semvsscada_dict['Feeder_From']
-
-        #     constituent_list = lookupDictionary.get(constituent_name)
-
-        #     if (constituent_list is not None) and (constituent_name not in lookupDictionary[constituent_name]):
-        #         lookupDictionary[constituent_name].append(
-        #             semvsscada_dict['Feeder_Name'])
-
-        # elif avg_scada_to <= 150 and semvsscada_dict['to_end_avg_val'] > 5:
-
-        #     constituent_name = semvsscada_dict['Feeder_From']
-
-        #     constituent_list = lookupDictionary.get(constituent_name)
-
-        #     if (constituent_list is not None) and (constituent_name not in lookupDictionary[constituent_name]):
-        #         lookupDictionary[constituent_name].append(
-        #             semvsscada_dict['Feeder_Name'])
-
-        # elif semvsscada_dict['to_end_avg_val'] > 3:
-
-        #     constituent_name = semvsscada_dict['Feeder_From']
-
-        #     constituent_list = lookupDictionary.get(constituent_name)
-
-        #     if (constituent_list is not None) and (constituent_name not in lookupDictionary[constituent_name]):
-        #         lookupDictionary[constituent_name].append(
-        #             semvsscada_dict['Feeder_Name'])
-
-        # if avg_scada_to <= 50 and semvsscada_dict['far_end_avg_val'] > 10:
-
-        #     constituent_name = semvsscada_dict['To_Feeder']
-
-        #     constituent_list = lookupDictionary.get(constituent_name)
-
-        #     if (constituent_list is not None) and (constituent_name not in lookupDictionary[constituent_name]):
-        #         lookupDictionary[constituent_name].append(
-        #             semvsscada_dict['Feeder_Name'])
-
-        # elif avg_scada_to <= 150 and semvsscada_dict['far_end_avg_val'] > 5:
-
-        #     constituent_name = semvsscada_dict['To_Feeder']
-
-        #     constituent_list = lookupDictionary.get(constituent_name)
-
-        #     if (constituent_list is not None) and (constituent_name not in lookupDictionary[constituent_name]):
-        #         lookupDictionary[constituent_name].append(
-        #             semvsscada_dict['Feeder_Name'])
-
-        # elif semvsscada_dict['far_end_avg_val'] > 3:
-
-        #     constituent_name = semvsscada_dict['To_Feeder']
-
-        #     constituent_list = lookupDictionary.get(constituent_name)
-
-        #     if (constituent_list is not None) and (constituent_name not in lookupDictionary[constituent_name]):
-        #         lookupDictionary[constituent_name].append(
-        #             semvsscada_dict['Feeder_Name'])
-
     final_data_to_send['BH'] = BH
     final_data_to_send['DV'] = DV
     final_data_to_send['GR'] = GR
@@ -1293,14 +1239,12 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
     final_data_to_send['SI'] = SI
     final_data_to_send['PG_odisha_project'] = PG_odisha_project
 
-    global Global_letter_data
-    global Global_data
-
     Global_letter_data = final_data_to_send.copy()
     Global_data = final_data_to_send1
 
     final_data_to_send['Data'] = final_data_to_send1
     return ([final_data_to_send,error_names])
+    
 
 def gen_error_excel():
 

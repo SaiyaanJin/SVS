@@ -101,7 +101,8 @@ def dashboard():
     CONNECTION_STRING = "mongodb://10.3.101.179:1434"
     client = MongoClient(CONNECTION_STRING)
     db = client['meterDataArchival']
-    Data_Table = db["meterData2024"]
+    current_year = datetime.now().year
+    Data_Table = db["meterData"+str(current_year)]
 
     meter_date = Data_Table.find(filter={}, projection={
                                  '_id': 0, 'date': 1}, sort=list({'date': -1}.items()), limit=1)
