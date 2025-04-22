@@ -9,7 +9,7 @@ import { InputTextarea } from "primereact/inputtextarea";
 import { Checkbox } from "primereact/checkbox";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
-import jwt_decode from "jwt-decode";
+import {jwtDecode} from "jwt-decode";
 import { useLocation } from "react-router-dom";
 import { Dialog } from "primereact/dialog";
 import moment from "moment";
