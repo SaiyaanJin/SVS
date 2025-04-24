@@ -341,7 +341,7 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
 
                 if folder == "yes":
 
-                    path = "D:/Applications/SVS/svs_be/Meter_Files/"
+                    path = "E:/Applications/SVS/svs_be/Meter_Files/"
 
                     filter = {'Meter_Code': Meter_To_End}
 
@@ -571,7 +571,7 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
 
                 if folder == "yes":
 
-                    path = "D:/Applications/SVS/svs_be/Meter_Files/"
+                    path = "E:/Applications/SVS/svs_be/Meter_Files/"
 
                     filter = {'Meter_Code': Meter_Far_End}
 
@@ -1252,7 +1252,7 @@ def gen_error_excel():
     name_list= Global_error_list
 
     try:
-        os.remove('D:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx')
+        os.remove('E:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx')
     except:
         pass
 
@@ -1262,9 +1262,9 @@ def gen_error_excel():
     if len(name_list) > 0:
         merged = pd.DataFrame(name_list)
         merged.to_excel(
-            "D:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx", index=None)
+            "E:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx", index=None)
 
-        path = "D:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx"
+        path = "E:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx"
 
         if os.path.exists(path):
             with open(path, "rb") as excel:
@@ -1272,7 +1272,7 @@ def gen_error_excel():
 
             response = Response(
                 data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            return send_file('D:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx', as_attachment=True, download_name='ErrorNames.xlsx')
+            return send_file('E:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx', as_attachment=True, download_name='ErrorNames.xlsx')
         else:
             return Response('Some error occured!')
 
@@ -1415,7 +1415,7 @@ def gen_all_letters():
 
     if len(const_dict['pg_er1'][0]) > 0:
         doc_er1 = DocxTemplate(
-            "D:/Applications/SVS/svs_be/letters doc templates/Letter to  Powergrid_ER1.docx")
+            "E:/Applications/SVS/svs_be/letters doc templates/Letter to  Powergrid_ER1.docx")
         context_er1 = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
             const_dict['pg_er1'][1].keys()), "Lines_hindi": list(const_dict['pg_er1'][1].values())}
         doc_er1.render(context_er1)
@@ -1424,7 +1424,7 @@ def gen_all_letters():
 
     if len(const_dict['pg_er2'][0]) > 0:
         doc_er2 = DocxTemplate(
-            "D:/Applications/SVS/svs_be/letters doc templates/Letter to  Powergrid_ER2.docx")
+            "E:/Applications/SVS/svs_be/letters doc templates/Letter to  Powergrid_ER2.docx")
         context_er2 = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
             const_dict['pg_er2'][1].keys()), "Lines_hindi": list(const_dict['pg_er2'][1].values())}
         doc_er2.render(context_er2)
@@ -1433,7 +1433,7 @@ def gen_all_letters():
 
     if len(const_dict['pg_er3'][0]) > 0:
         doc_er3 = DocxTemplate(
-            "D:/Applications/SVS/svs_be/letters doc templates/Letter to Powergrid_Odisha_Project.docx")
+            "E:/Applications/SVS/svs_be/letters doc templates/Letter to Powergrid_Odisha_Project.docx")
         context_er3 = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
             const_dict['pg_er3'][1].keys()), "Lines_hindi": list(const_dict['pg_er3'][1].values())}
         doc_er3.render(context_er3)
@@ -1442,7 +1442,7 @@ def gen_all_letters():
 
     if len(const_dict['bh'][0]) > 0:
 
-        doc_bh = DocxTemplate("D:/Applications/SVS/svs_be/letters doc templates/Letter to BSPTCL.docx")
+        doc_bh = DocxTemplate("E:/Applications/SVS/svs_be/letters doc templates/Letter to BSPTCL.docx")
         context_bh = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
             const_dict['bh'][1].keys()), "Lines_hindi": list(const_dict['bh'][1].values())}
         doc_bh.render(context_bh)
@@ -1450,7 +1450,7 @@ def gen_all_letters():
             year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
 
     if len(const_dict['wb'][0]) > 0:
-        doc_wb = DocxTemplate("D:/Applications/SVS/svs_be/letters doc templates/Letter to WBSETCL.docx")
+        doc_wb = DocxTemplate("E:/Applications/SVS/svs_be/letters doc templates/Letter to WBSETCL.docx")
         context_wb = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
             const_dict['wb'][1].keys()), "Lines_hindi": list(const_dict['wb'][1].values())}
         doc_wb.render(context_wb)
@@ -1458,7 +1458,7 @@ def gen_all_letters():
             year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
 
     if len(const_dict['jh'][0]) > 0:
-        doc_jh = DocxTemplate("D:/Applications/SVS/svs_be/letters doc templates/Letter to JUSNL.docx")
+        doc_jh = DocxTemplate("E:/Applications/SVS/svs_be/letters doc templates/Letter to JUSNL.docx")
         context_jh = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
             const_dict['jh'][1].keys()), "Lines_hindi": list(const_dict['jh'][1].values())}
         doc_jh.render(context_jh)
@@ -1466,7 +1466,7 @@ def gen_all_letters():
             year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
 
     if len(const_dict['dvc'][0]) > 0:
-        doc_dvc = DocxTemplate("D:/Applications/SVS/svs_be/letters doc templates/Letter to DVC.docx")
+        doc_dvc = DocxTemplate("E:/Applications/SVS/svs_be/letters doc templates/Letter to DVC.docx")
         context_dvc = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
             const_dict['dvc'][1].keys()), "Lines_hindi": list(const_dict['dvc'][1].values())}
         doc_dvc.render(context_dvc)
@@ -1474,7 +1474,7 @@ def gen_all_letters():
             year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
 
     if len(const_dict['gr'][0]) > 0:
-        doc_gr = DocxTemplate("D:/Applications/SVS/svs_be/letters doc templates/Letter to OPTCL.docx")
+        doc_gr = DocxTemplate("E:/Applications/SVS/svs_be/letters doc templates/Letter to OPTCL.docx")
         context_gr = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
             const_dict['gr'][1].keys()), "Lines_hindi": list(const_dict['gr'][1].values())}
         doc_gr.render(context_gr)
@@ -1482,7 +1482,7 @@ def gen_all_letters():
             year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
 
     if len(const_dict['si'][0]) > 0:
-        doc_si = DocxTemplate("D:/Applications/SVS/svs_be/letters doc templates/Letter to Sikkim.docx")
+        doc_si = DocxTemplate("E:/Applications/SVS/svs_be/letters doc templates/Letter to Sikkim.docx")
         context_si = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
             const_dict['si'][1].keys()), "Lines_hindi": list(const_dict['si'][1].values())}
         doc_si.render(context_si)
@@ -1549,7 +1549,7 @@ def gen_excel():
     svs_to = pd.concat(svs_to, axis=1, join="inner")
     svs_far = pd.concat(svs_far, axis=1, join="inner")
 
-    path = "D:/Applications/SVS/svs_be/output/SVS.xlsx"
+    path = "E:/Applications/SVS/svs_be/output/SVS.xlsx"
 
     # if len(meter_to) > 0:
 

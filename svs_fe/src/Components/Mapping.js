@@ -160,7 +160,7 @@ function Mapping(params) {
 							if (decoded["Department"] === "SCADA") {
 								setDepartment("SCADA");
 								axios
-									.post("http://10.3.200.63:5003/Mapping_Table", {})
+									.post("http://10.3.230.62:5003/Mapping_Table", {})
 									.then((response) => {
 										// console.log(response.data);
 										setapi_mapping_data(response.data);
@@ -195,7 +195,7 @@ function Mapping(params) {
 							) {
 								setisAdmin(true);
 								axios
-									.post("http://10.3.200.63:5003/Mapping_Table", {})
+									.post("http://10.3.230.62:5003/Mapping_Table", {})
 									.then((response) => {
 										// console.log(response.data);
 										setapi_mapping_data(response.data);
@@ -271,7 +271,7 @@ function Mapping(params) {
 		if (edited_row_data) {
 			axios
 				.post(
-					"http://10.3.200.63:5003/Mapping_Table_Update?by=" +
+					"http://10.3.230.62:5003/Mapping_Table_Update?by=" +
 						Person_Name +
 						" " +
 						User_id,
@@ -280,7 +280,7 @@ function Mapping(params) {
 				.then((response) => {
 					if (response.data === "Updated") {
 						axios
-							.post("http://10.3.200.63:5003/Mapping_Table", {})
+							.post("http://10.3.230.62:5003/Mapping_Table", {})
 							.then((response) => {
 								setapi_mapping_data(response.data);
 								setmapping_data_copy(response.data);
@@ -322,7 +322,7 @@ function Mapping(params) {
 		if (deleted_row_data) {
 			axios
 				.post(
-					"http://10.3.200.63:5003/Mapping_Table_Delete?by=" +
+					"http://10.3.230.62:5003/Mapping_Table_Delete?by=" +
 						Person_Name +
 						" " +
 						User_id,
@@ -335,7 +335,7 @@ function Mapping(params) {
 						// mapping_data_copy.splice(index, 1);
 
 						axios
-							.post("http://10.3.200.63:5003/Mapping_Table", {})
+							.post("http://10.3.230.62:5003/Mapping_Table", {})
 							.then((response) => {
 								setapi_mapping_data(response.data);
 								setmapping_data_copy(response.data);
@@ -471,7 +471,7 @@ function Mapping(params) {
 		if (data_to_send.length !== 0) {
 			axios
 				.post(
-					"http://10.3.200.63:5003/Mapping_Table_Add?by=" +
+					"http://10.3.230.62:5003/Mapping_Table_Add?by=" +
 						Person_Name +
 						" " +
 						User_id,
@@ -480,7 +480,7 @@ function Mapping(params) {
 				.then((response) => {
 					if ((response.data = "Inserted")) {
 						axios
-							.post("http://10.3.200.63:5003/Mapping_Table", {})
+							.post("http://10.3.230.62:5003/Mapping_Table", {})
 							.then((response) => {
 								setapi_mapping_data(response.data);
 								setmapping_data_copy(response.data);

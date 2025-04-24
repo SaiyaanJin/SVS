@@ -74,7 +74,7 @@ function Scada_Data(params) {
 		if (date_range && date_range[1]) {
 			axios
 				.post(
-					"http://10.3.200.63:5003/getScadaCode?startDate=" +
+					"http://10.3.230.62:5003/getScadaCode?startDate=" +
 						moment(date_range[0]).format("YYYY-MM-DD") +
 						"&endDate=" +
 						moment(date_range[1]).format("YYYY-MM-DD"),
@@ -100,7 +100,7 @@ function Scada_Data(params) {
 		if (start_date && end_date) {
 			axios
 				.post(
-					"http://10.3.200.63:5003/upload?startDate=" +
+					"http://10.3.230.62:5003/upload?startDate=" +
 						moment(start_date).format("YYYY-MM-DD") +
 						"&endDate=" +
 						moment(end_date).format("YYYY-MM-DD")
@@ -133,7 +133,7 @@ function Scada_Data(params) {
 		if (start_date && end_date && Selected_scada_states) {
 			axios
 				.post(
-					"http://10.3.200.63:5003/getScadaData?startDate=" +
+					"http://10.3.230.62:5003/getScadaData?startDate=" +
 						moment(start_date).format("YYYY-MM-DD") +
 						"&endDate=" +
 						moment(end_date).format("YYYY-MM-DD") +

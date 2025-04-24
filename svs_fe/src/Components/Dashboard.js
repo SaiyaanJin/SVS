@@ -29,7 +29,7 @@ function Dashboard(params) {
 	useEffect(() => {
 		if (id) {
 			axios
-				.post("http://10.3.200.63:5003/dashboard")
+				.post("http://10.3.230.62:5003/dashboard")
 				.then((response) => {
 					if (response.data) {
 						setmeter_date({
@@ -149,7 +149,7 @@ function Dashboard(params) {
 
 	const folder_delete =()=>{
 		axios
-				.post("http://10.3.200.63:5003/folder_delete")
+				.post("http://10.3.230.62:5003/folder_delete")
 				.then((response) => {
 					alert(response.data)
 					setBlocked(false);

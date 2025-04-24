@@ -112,7 +112,7 @@ def dashboard():
                                           '_id': 0, 'Date': 1}, sort=list({'Date': -1}.items()), limit=1)
     scada_db_date = list(scada_db_date)
 
-    path = os.listdir("D:/Applications/SVS/svs_be/Meter_Files/")
+    path = os.listdir("E:/Applications/SVS/svs_be/Meter_Files/")
 
     temp_path = []
 
@@ -281,7 +281,7 @@ def file_upload():
     file = request.files.getlist("demo[]")
 
     zip_handle = ZipFile(file[0].file)
-    zip_handle.extractall("D:/Applications/SVS/svs_be/Meter_Files")
+    zip_handle.extractall("E:/Applications/SVS/svs_be/Meter_Files")
     zip_handle.close()
 
     return jsonify("final_output")
@@ -461,8 +461,8 @@ def delete():
 @app.route('/folder_delete', methods=['GET', 'POST'])
 def folder_delete():
 
-    path = os.listdir("D:/Applications/SVS/svs_be/Meter_Files/")
-    temp_path = "D:/Applications/SVS/svs_be/Meter_Files/"
+    path = os.listdir("E:/Applications/SVS/svs_be/Meter_Files/")
+    temp_path = "E:/Applications/SVS/svs_be/Meter_Files/"
 
     if len(path)!=0:
         for i in range(len(path)):
@@ -516,7 +516,7 @@ def meter_names():
 
     elif folder == "yes":
 
-        path = "D:/Applications/SVS/svs_be/Meter_Files/"
+        path = "E:/Applications/SVS/svs_be/Meter_Files/"
 
         startDate_obj = datetime.strptime(startDate, '%Y-%m-%d')
         endDate_obj = datetime.strptime(endDate, '%Y-%m-%d')
@@ -577,7 +577,7 @@ def meter_check():
     db_dates=[]
     meter_folder_dates=[]
     non_meter_folder_dates=[]
-    path = "D:/Applications/SVS/svs_be/Meter_Files/"
+    path = "E:/Applications/SVS/svs_be/Meter_Files/"
 
     CONNECTION_STRING = "mongodb://10.3.101.179:1434"
     client = MongoClient(CONNECTION_STRING)
@@ -711,7 +711,7 @@ def GetMeterData():
 
     elif folder == "yes":
 
-        path = "D:/Applications/SVS/svs_be/Meter_Files/"
+        path = "E:/Applications/SVS/svs_be/Meter_Files/"
 
         startDateObj = datetime.strptime(startDate, "%Y-%m-%d")
         endDateObj = datetime.strptime(endDate, "%Y-%m-%d")
@@ -809,8 +809,8 @@ def GetMeterData():
 @app.route('/MeterMapping', methods=['GET', 'POST'])
 def MeterMapping():
 
-    meter_path = "D:/master.dat"
-    fict_meter_path = "D:/FICTMTRS.dat"
+    meter_path = "E:/master.dat"
+    fict_meter_path = "E:/FICTMTRS.dat"
 
     meter_data = pd.read_csv(meter_path, header=None)
     dfSeriesEnd1 = pd.DataFrame(meter_data)
@@ -941,7 +941,7 @@ def SEMvsSCADA():
 
             if (folder == "yes"):
 
-                path = "D:/Applications/SVS/svs_be/Meter_Files/"
+                path = "E:/Applications/SVS/svs_be/Meter_Files/"
                 mete = meterNO+".MWH"
                 full_path = path+it.strftime("%d-%m-%y")
 
@@ -1122,7 +1122,7 @@ def letters_zip():
     gen_all_letters()
 
     # # Parent Directory
-    # directory = "D:/Applications/SVS/svs_be/output/ZipFiles"
+    # directory = "E:/Applications/SVS/svs_be/output/ZipFiles"
     # # Remove the Directory
     # try:
     #     print("start")
@@ -1147,9 +1147,9 @@ def letters_zip():
     # dir_list = os.listdir(folder_path)
 
     archived = shutil.make_archive(
-        "D:/Applications/SVS/svs_be/output/ZipFiles/"+year_folder+'/'+month_folder+'/'+startDate_obj+'_to_'+endDate_obj+"/Letters", 'zip', folder_path)
+        "E:/Applications/SVS/svs_be/output/ZipFiles/"+year_folder+'/'+month_folder+'/'+startDate_obj+'_to_'+endDate_obj+"/Letters", 'zip', folder_path)
 
-    return send_file('D:/Applications/SVS/svs_be/output/ZipFiles/'+year_folder+'/'+month_folder+'/'+startDate_obj+'_to_'+endDate_obj+'/Letters.zip', as_attachment=True, download_name='Sem vs Scada Letters '+startDate_obj + '_to_' + endDate_obj+".zip")
+    return send_file('E:/Applications/SVS/svs_be/output/ZipFiles/'+year_folder+'/'+month_folder+'/'+startDate_obj+'_to_'+endDate_obj+'/Letters.zip', as_attachment=True, download_name='Sem vs Scada Letters '+startDate_obj + '_to_' + endDate_obj+".zip")
     # return ("hi")
 
 
@@ -1161,7 +1161,7 @@ def GetSvSExcel():
     startDate = request.args['startDate']
     endDate = request.args['endDate']
 
-    path = "D:/Applications/SVS/svs_be/output/SVS.xlsx"
+    path = "E:/Applications/SVS/svs_be/output/SVS.xlsx"
 
     if os.path.exists(path):
         with open(path, "rb") as excel:
@@ -1180,7 +1180,7 @@ def GetErrorExcel():
     startDate = request.args['startDate']
     endDate = request.args['endDate']
 
-    path = "D:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx"
+    path = "E:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx"
 
     if os.path.exists(path):
         with open(path, "rb") as excel:

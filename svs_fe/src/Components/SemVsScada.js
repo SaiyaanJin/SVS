@@ -139,7 +139,7 @@ function SemVsScada(params) {
 
 			axios
 				.post(
-					"http://10.3.200.63:5003/meter_check?startDate=" +
+					"http://10.3.230.62:5003/meter_check?startDate=" +
 						moment(date_range[0]).format("YYYY-MM-DD") +
 						"&endDate=" +
 						moment(date_range[1]).format("YYYY-MM-DD"),
@@ -204,7 +204,7 @@ function SemVsScada(params) {
 			if (!folder_files) {
 				axios
 					.post(
-						"http://10.3.200.63:5003/SEMvsSCADAreport?startDate=" +
+						"http://10.3.230.62:5003/SEMvsSCADAreport?startDate=" +
 							moment(start_date).format("YYYY-MM-DD") +
 							"&endDate=" +
 							moment(end_date).format("YYYY-MM-DD") +
@@ -232,7 +232,7 @@ function SemVsScada(params) {
 			} else {
 				axios
 					.post(
-						"http://10.3.200.63:5003/SEMvsSCADAreport?startDate=" +
+						"http://10.3.230.62:5003/SEMvsSCADAreport?startDate=" +
 							moment(start_date).format("YYYY-MM-DD") +
 							"&endDate=" +
 							moment(end_date).format("YYYY-MM-DD") +
@@ -339,7 +339,7 @@ function SemVsScada(params) {
 					<div className="field">
 						<a
 							href={
-								"http://10.3.200.63:5003/letters_zip?startDate=" +
+								"http://10.3.230.62:5003/letters_zip?startDate=" +
 								moment(start_date).format("DD-MM-YYYY") +
 								"&endDate=" +
 								moment(end_date).format("DD-MM-YYYY")
@@ -357,7 +357,7 @@ function SemVsScada(params) {
 
 						<a
 							href={
-								"http://10.3.200.63:5003/GetSvSExcel?startDate=" +
+								"http://10.3.230.62:5003/GetSvSExcel?startDate=" +
 								moment(start_date).format("DD-MM-YYYY") +
 								"&endDate=" +
 								moment(end_date).format("DD-MM-YYYY")
@@ -375,7 +375,7 @@ function SemVsScada(params) {
 
 						<a
 							href={
-								"http://10.3.200.63:5003/GetErrorExcel?startDate=" +
+								"http://10.3.230.62:5003/GetErrorExcel?startDate=" +
 								moment(start_date).format("DD-MM-YYYY") +
 								"&endDate=" +
 								moment(end_date).format("DD-MM-YYYY")
