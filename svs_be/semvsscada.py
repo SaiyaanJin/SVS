@@ -93,7 +93,7 @@ def working():
 @app.route('/dashboard', methods=['GET', 'POST'])
 def dashboard():
 
-    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017/?replicaSet=CONSERV"
+    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
     client = MongoClient(CONNECTION_STRING)
     db = client['SemVsScada']
     User_Input_Table = db['Scada_Data']
@@ -142,7 +142,7 @@ def dashboard():
 
 def ScadaCollection():
 
-    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017/?replicaSet=CONSERV"
+    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
     client = MongoClient(CONNECTION_STRING)
     db = client['SemVsScada']
     User_Input_Table = db['Scada_Data']
@@ -1229,7 +1229,7 @@ def Scada_Delete():
 @app.route('/Mapping_Table', methods=['GET', 'POST'])
 def Mapping_Table():
 
-    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017/?replicaSet=CONSERV"
+    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
     client = MongoClient(CONNECTION_STRING)
     db = client['SemVsScada']
     mapping_table = db['mapping_table']
@@ -1260,7 +1260,7 @@ def Mapping_Table_Update():
     Data = request.json
     person_id= request.args['by']
 
-    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017/?replicaSet=CONSERV"
+    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
     client = MongoClient(CONNECTION_STRING)
     db = client['SemVsScada']
     mapping_table = db['mapping_table']
@@ -1290,7 +1290,7 @@ def Mapping_Table_Delete():
     Data = request.json
     person_id= request.args['by']
 
-    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017/?replicaSet=CONSERV"
+    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
     client = MongoClient(CONNECTION_STRING)
     db = client['SemVsScada']
     mapping_table = db['mapping_table']
@@ -1323,7 +1323,7 @@ def Mapping_Table_Add():
 
     Data['Added_by'] = person_id
 
-    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017/?replicaSet=CONSERV"
+    CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
     client = MongoClient(CONNECTION_STRING)
     db = client['SemVsScada']
     mapping_table = db['mapping_table']
