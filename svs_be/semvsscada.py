@@ -112,7 +112,7 @@ def dashboard():
                                           '_id': 0, 'Date': 1}, sort=list({'Date': -1}.items()), limit=1)
     scada_db_date = list(scada_db_date)
 
-    path = os.listdir("E:/Applications/SVS/svs_be/Meter_Files/")
+    path = os.listdir("Meter_Files/")
 
     temp_path = []
 
@@ -241,7 +241,7 @@ def getScadaData():
 
             # print(data)
 
-        # for for_date in pd.date_range(date(startDateObj.year, startDateObj.month, startDateObj.day), date(endDateObj.year, endDateObj.month, endDateObj.day)):
+        for for_date in pd.date_range(date(startDateObj.year, startDateObj.month, startDateObj.day), date(endDateObj.year, endDateObj.month, endDateObj.day)):
 
             for item in data:
                 # print(item)
@@ -281,7 +281,7 @@ def file_upload():
     file = request.files.getlist("demo[]")
 
     zip_handle = ZipFile(file[0].file)
-    zip_handle.extractall("E:/Applications/SVS/svs_be/Meter_Files")
+    zip_handle.extractall("Meter_Files")
     zip_handle.close()
 
     return jsonify("final_output")
@@ -461,8 +461,8 @@ def delete():
 @app.route('/folder_delete', methods=['GET', 'POST'])
 def folder_delete():
 
-    path = os.listdir("E:/Applications/SVS/svs_be/Meter_Files/")
-    temp_path = "E:/Applications/SVS/svs_be/Meter_Files/"
+    path = os.listdir("Meter_Files/")
+    temp_path = "Meter_Files/"
 
     if len(path)!=0:
         for i in range(len(path)):
@@ -516,7 +516,7 @@ def meter_names():
 
     elif folder == "yes":
 
-        path = "E:/Applications/SVS/svs_be/Meter_Files/"
+        path = "Meter_Files/"
 
         startDate_obj = datetime.strptime(startDate, '%Y-%m-%d')
         endDate_obj = datetime.strptime(endDate, '%Y-%m-%d')
@@ -577,7 +577,7 @@ def meter_check():
     db_dates=[]
     meter_folder_dates=[]
     non_meter_folder_dates=[]
-    path = "E:/Applications/SVS/svs_be/Meter_Files/"
+    path = "Meter_Files/"
 
     CONNECTION_STRING = "mongodb://10.3.101.179:1434"
     client = MongoClient(CONNECTION_STRING)
@@ -711,7 +711,7 @@ def GetMeterData():
 
     elif folder == "yes":
 
-        path = "E:/Applications/SVS/svs_be/Meter_Files/"
+        path = "Meter_Files/"
 
         startDateObj = datetime.strptime(startDate, "%Y-%m-%d")
         endDateObj = datetime.strptime(endDate, "%Y-%m-%d")
@@ -806,55 +806,55 @@ def GetMeterData():
         return jsonify(data_to_send)
 
 
-@app.route('/MeterMapping', methods=['GET', 'POST'])
-def MeterMapping():
+# @app.route('/MeterMapping', methods=['GET', 'POST'])
+# def MeterMapping():
 
-    meter_path = "E:/master.dat"
-    fict_meter_path = "E:/FICTMTRS.dat"
+#     meter_path = "E:/master.dat"
+#     fict_meter_path = "E:/FICTMTRS.dat"
 
-    meter_data = pd.read_csv(meter_path, header=None)
-    dfSeriesEnd1 = pd.DataFrame(meter_data)
-    dfEnd1 = dfSeriesEnd1[0]
+#     meter_data = pd.read_csv(meter_path, header=None)
+#     dfSeriesEnd1 = pd.DataFrame(meter_data)
+#     dfEnd1 = dfSeriesEnd1[0]
 
-    fict_meter_data = pd.read_csv(fict_meter_path, header=None)
-    dfSeriesEnd2 = pd.DataFrame(fict_meter_data)
-    dfEnd2 = dfSeriesEnd2[0]
+#     fict_meter_data = pd.read_csv(fict_meter_path, header=None)
+#     dfSeriesEnd2 = pd.DataFrame(fict_meter_data)
+#     dfEnd2 = dfSeriesEnd2[0]
 
-    final_list = []
-    meter_list = []
+#     final_list = []
+#     meter_list = []
 
-    for i in range(2, len(dfEnd1)):
-        names = dfEnd1[i].split("  ")[-1]
-        meter_name = dfEnd1[i].split()[1]
-        meter_code = dfEnd1[i].split()[0]
-        meter_list.append(meter_name)
+#     for i in range(2, len(dfEnd1)):
+#         names = dfEnd1[i].split("  ")[-1]
+#         meter_name = dfEnd1[i].split()[1]
+#         meter_code = dfEnd1[i].split()[0]
+#         meter_list.append(meter_name)
 
-        temp_dict = {
-            "Meter_Name": meter_name,
-            "Meter_Code": meter_code,
-            "Name": names,
-            "Type": "Real Meter"
-        }
-        final_list.append(temp_dict)
+#         temp_dict = {
+#             "Meter_Name": meter_name,
+#             "Meter_Code": meter_code,
+#             "Name": names,
+#             "Type": "Real Meter"
+#         }
+#         final_list.append(temp_dict)
 
-    for j in range(2, len(dfEnd2)-1):
+#     for j in range(2, len(dfEnd2)-1):
 
-        names = dfEnd2[j].split("  ")[-1]
-        meter_name = dfEnd2[j].split()[1]
-        meter_code = dfEnd2[j].split()[0]
-        meter_list.append(meter_name)
+#         names = dfEnd2[j].split("  ")[-1]
+#         meter_name = dfEnd2[j].split()[1]
+#         meter_code = dfEnd2[j].split()[0]
+#         meter_list.append(meter_name)
 
-        temp_dict = {
-            "Meter_Name": meter_name,
-            "Meter_Code": meter_code,
-            "Name": names,
-            "Type": "Fictitious Meter"
-        }
-        final_list.append(temp_dict)
+#         temp_dict = {
+#             "Meter_Name": meter_name,
+#             "Meter_Code": meter_code,
+#             "Name": names,
+#             "Type": "Fictitious Meter"
+#         }
+#         final_list.append(temp_dict)
 
-    res = meter_table.insert_many(final_list)
+#     res = meter_table.insert_many(final_list)
 
-    return jsonify(res)
+#     return jsonify(res)
 
 
 # /////////////////////////////////////////////SEM vs SCADA///////////////////////////////////////////////////
@@ -941,7 +941,7 @@ def SEMvsSCADA():
 
             if (folder == "yes"):
 
-                path = "E:/Applications/SVS/svs_be/Meter_Files/"
+                path = "Meter_Files/"
                 mete = meterNO+".MWH"
                 full_path = path+it.strftime("%d-%m-%y")
 
@@ -1122,7 +1122,7 @@ def letters_zip():
     gen_all_letters()
 
     # # Parent Directory
-    # directory = "E:/Applications/SVS/svs_be/output/ZipFiles"
+    # directory = "output/ZipFiles"
     # # Remove the Directory
     # try:
     #     print("start")
@@ -1147,9 +1147,9 @@ def letters_zip():
     # dir_list = os.listdir(folder_path)
 
     archived = shutil.make_archive(
-        "E:/Applications/SVS/svs_be/output/ZipFiles/"+year_folder+'/'+month_folder+'/'+startDate_obj+'_to_'+endDate_obj+"/Letters", 'zip', folder_path)
+        "output/ZipFiles/"+year_folder+'/'+month_folder+'/'+startDate_obj+'_to_'+endDate_obj+"/Letters", 'zip', folder_path)
 
-    return send_file('E:/Applications/SVS/svs_be/output/ZipFiles/'+year_folder+'/'+month_folder+'/'+startDate_obj+'_to_'+endDate_obj+'/Letters.zip', as_attachment=True, download_name='Sem vs Scada Letters '+startDate_obj + '_to_' + endDate_obj+".zip")
+    return send_file('output/ZipFiles/'+year_folder+'/'+month_folder+'/'+startDate_obj+'_to_'+endDate_obj+'/Letters.zip', as_attachment=True, download_name='Sem vs Scada Letters '+startDate_obj + '_to_' + endDate_obj+".zip")
     # return ("hi")
 
 
@@ -1161,7 +1161,7 @@ def GetSvSExcel():
     startDate = request.args['startDate']
     endDate = request.args['endDate']
 
-    path = "E:/Applications/SVS/svs_be/output/SVS.xlsx"
+    path = "output/SVS.xlsx"
 
     if os.path.exists(path):
         with open(path, "rb") as excel:
@@ -1180,7 +1180,7 @@ def GetErrorExcel():
     startDate = request.args['startDate']
     endDate = request.args['endDate']
 
-    path = "E:/Applications/SVS/svs_be/Excel_Files/ErrorNames.xlsx"
+    path = "Excel_Files/ErrorNames.xlsx"
 
     if os.path.exists(path):
         with open(path, "rb") as excel:

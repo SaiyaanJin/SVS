@@ -11,6 +11,10 @@ import Dashboard from "./Components/Dashboard";
 import SemVsScada from "./Components/SemVsScada";
 import Mapping from "./Components/Mapping";
 
+import axios from "axios";
+
+axios.defaults.baseURL = process.env.REACT_APP_API_BASE_URL;
+
 function App() {
 	const [Dash, setDash] = useState(true);
 	const [SemShow, setSemShow] = useState(true);

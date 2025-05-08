@@ -63,6 +63,8 @@ function SemVsScada(params) {
 	const [selectedrows, setselectedrows] = useState([]);
 	ChartJS.register(...registerables, zoomPlugin);
 
+	const baseURL = process.env.REACT_APP_API_BASE_URL;
+
 	const zoomOptions = {
 		zoom: {
 			wheel: {
@@ -139,7 +141,7 @@ function SemVsScada(params) {
 
 			axios
 				.post(
-					"http://10.3.230.62:5003/meter_check?startDate=" +
+					"/meter_check?startDate=" +
 						moment(date_range[0]).format("YYYY-MM-DD") +
 						"&endDate=" +
 						moment(date_range[1]).format("YYYY-MM-DD"),
@@ -204,7 +206,7 @@ function SemVsScada(params) {
 			if (!folder_files) {
 				axios
 					.post(
-						"http://10.3.230.62:5003/SEMvsSCADAreport?startDate=" +
+						"/SEMvsSCADAreport?startDate=" +
 							moment(start_date).format("YYYY-MM-DD") +
 							"&endDate=" +
 							moment(end_date).format("YYYY-MM-DD") +
@@ -232,7 +234,7 @@ function SemVsScada(params) {
 			} else {
 				axios
 					.post(
-						"http://10.3.230.62:5003/SEMvsSCADAreport?startDate=" +
+						"/SEMvsSCADAreport?startDate=" +
 							moment(start_date).format("YYYY-MM-DD") +
 							"&endDate=" +
 							moment(end_date).format("YYYY-MM-DD") +
@@ -339,7 +341,7 @@ function SemVsScada(params) {
 					<div className="field">
 						<a
 							href={
-								"http://10.3.230.62:5003/letters_zip?startDate=" +
+								`${baseURL}/letters_zip?startDate=` +
 								moment(start_date).format("DD-MM-YYYY") +
 								"&endDate=" +
 								moment(end_date).format("DD-MM-YYYY")
@@ -357,7 +359,7 @@ function SemVsScada(params) {
 
 						<a
 							href={
-								"http://10.3.230.62:5003/GetSvSExcel?startDate=" +
+								`${baseURL}/GetSvSExcel?startDate=`+
 								moment(start_date).format("DD-MM-YYYY") +
 								"&endDate=" +
 								moment(end_date).format("DD-MM-YYYY")
@@ -375,7 +377,7 @@ function SemVsScada(params) {
 
 						<a
 							href={
-								"http://10.3.230.62:5003/GetErrorExcel?startDate=" +
+								`${baseURL}/GetErrorExcel?startDate=` +
 								moment(start_date).format("DD-MM-YYYY") +
 								"&endDate=" +
 								moment(end_date).format("DD-MM-YYYY")
@@ -423,7 +425,7 @@ function SemVsScada(params) {
 							var Far_table_val1 = [];
 							var far_name = selectedrows[0].Feeder_Name.split("_");
 
-							if (far_name.length == 4) {
+							if (far_name.length===4) {
 								far_name =
 									far_name[0] +
 									"_" +
@@ -432,7 +434,7 @@ function SemVsScada(params) {
 									far_name[1] +
 									"_" +
 									far_name[3];
-							} else if (far_name.length == 3) {
+							} else if (far_name.length===3) {
 								far_name = far_name[0] + "_" + far_name[2] + "_" + far_name[1];
 							} else {
 								far_name = selectedrows[0].Feeder_Name;
@@ -658,7 +660,7 @@ function SemVsScada(params) {
 								selectedrows.map((f) => {
 									var far_name1 = f.Feeder_Name.split("_");
 
-									if (far_name1.length == 4) {
+									if (far_name1.length===4) {
 										far_name1 =
 											far_name1[0] +
 											"_" +
@@ -667,7 +669,7 @@ function SemVsScada(params) {
 											far_name1[1] +
 											"_" +
 											far_name1[3];
-									} else if (far_name1.length == 3) {
+									} else if (far_name1.length===3) {
 										far_name1 =
 											far_name1[0] + "_" + far_name1[2] + "_" + far_name1[1];
 									} else {
@@ -818,7 +820,7 @@ function SemVsScada(params) {
 
 							var far_name2 = e.Feeder_Name.split("_");
 
-							if (far_name2.length == 4) {
+							if (far_name2.length===4) {
 								far_name2 =
 									far_name2[0] +
 									"_" +
@@ -827,7 +829,7 @@ function SemVsScada(params) {
 									far_name2[1] +
 									"_" +
 									far_name2[3];
-							} else if (far_name2.length == 3) {
+							} else if (far_name2.length===3) {
 								far_name2 =
 									far_name2[0] + "_" + far_name2[2] + "_" + far_name2[1];
 							} else {
@@ -996,7 +998,7 @@ function SemVsScada(params) {
 
 							var far_name3 = selectedrows[0].Feeder_Name.split("_");
 
-							if (far_name3.length == 4) {
+							if (far_name3.length===4) {
 								far_name3 =
 									far_name3[0] +
 									"_" +
@@ -1005,7 +1007,7 @@ function SemVsScada(params) {
 									far_name3[1] +
 									"_" +
 									far_name3[3];
-							} else if (far_name3.length == 3) {
+							} else if (far_name3.length===3) {
 								far_name3 =
 									far_name3[0] + "_" + far_name3[2] + "_" + far_name3[1];
 							} else {
@@ -1521,7 +1523,7 @@ function SemVsScada(params) {
 
 		var rev_far_name = e.Feeder_Name.split("_");
 
-		if (rev_far_name.length == 4) {
+		if (rev_far_name.length===4) {
 			rev_far_name =
 				rev_far_name[0] +
 				"_" +
@@ -1530,7 +1532,7 @@ function SemVsScada(params) {
 				rev_far_name[1] +
 				"_" +
 				rev_far_name[3];
-		} else if (rev_far_name.length == 3) {
+		} else if (rev_far_name.length===3) {
 			rev_far_name =
 				rev_far_name[0] + "_" + rev_far_name[2] + "_" + rev_far_name[1];
 		} else {
@@ -1694,7 +1696,7 @@ function SemVsScada(params) {
 
 		var rev_far_name = e.Feeder_Name.split("_");
 
-		if (rev_far_name.length == 4) {
+		if (rev_far_name.length===4) {
 			rev_far_name =
 				rev_far_name[0] +
 				"_" +
@@ -1703,7 +1705,7 @@ function SemVsScada(params) {
 				rev_far_name[1] +
 				"_" +
 				rev_far_name[3];
-		} else if (rev_far_name.length == 3) {
+		} else if (rev_far_name.length===3) {
 			rev_far_name =
 				rev_far_name[0] + "_" + rev_far_name[2] + "_" + rev_far_name[1];
 		} else {
