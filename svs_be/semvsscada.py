@@ -18,10 +18,7 @@ from flask import send_from_directory
 from pandas.tseries.offsets import MonthEnd
 from werkzeug .utils import secure_filename
 from zipfile import ZipFile
-from svs_report import svsreport
-from svs_report import gen_all_letters
-from svs_report import gen_excel
-from svs_report import gen_error_excel
+from svs_report import *
 import shutil
 from bson import json_util, ObjectId
 
@@ -98,7 +95,7 @@ def dashboard():
     db = client['SemVsScada']
     User_Input_Table = db['Scada_Data']
 
-    CONNECTION_STRING = "mongodb://10.3.101.179:1434"
+    CONNECTION_STRING = "mongodb://10.3.230.94:1434"
     client = MongoClient(CONNECTION_STRING)
     db = client['meterDataArchival']
     current_year = datetime.now().year
@@ -486,7 +483,7 @@ def meter_names():
 
     if (folder == "no"):
 
-        CONNECTION_STRING = "mongodb://10.3.101.179:1434"
+        CONNECTION_STRING = "mongodb://10.3.230.94:1434"
         client = MongoClient(CONNECTION_STRING)
         db = client['meterDataArchival']
         Data_Table = db["meterData"+str(startDate_obj.year)]
@@ -579,7 +576,7 @@ def meter_check():
     non_meter_folder_dates=[]
     path = "Meter_Files/"
 
-    CONNECTION_STRING = "mongodb://10.3.101.179:1434"
+    CONNECTION_STRING = "mongodb://10.3.230.94:1434"
     client = MongoClient(CONNECTION_STRING)
     db = client['meterDataArchival']
     Data_Table = db["meterData"+str(startDate_obj.year)]
@@ -634,7 +631,7 @@ def GetMeterData():
 
     if (folder == "no"):
 
-        CONNECTION_STRING = "mongodb://10.3.101.179:1434"
+        CONNECTION_STRING = "mongodb://10.3.230.94:1434"
         client = MongoClient(CONNECTION_STRING)
         db = client['meterDataArchival']
         Data_Table = db["meterData"+str(startDate_obj.year)]
@@ -909,7 +906,7 @@ def SEMvsSCADA():
 
             if (folder == "no"):
 
-                CONNECTION_STRING = "mongodb://10.3.101.179:1434"
+                CONNECTION_STRING = "mongodb://10.3.230.94:1434"
                 client = MongoClient(CONNECTION_STRING)
                 db = client['meterDataArchival']
                 Data_Table = db["meterData"+str(it.year)]
@@ -1190,6 +1187,13 @@ def GetErrorExcel():
             data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
     return send_file(path, as_attachment=True, download_name='SVS_ErrorNames('+startDate+' to '+endDate+').xlsx')
+
+@app.route('/graph_pdf', methods=['GET', 'POST'])
+def graph_pdf():
+
+    response= gen_graph_pdf()
+
+    return response
 
 
 @app.route('/Scada_Delete', methods=['GET', 'POST'])

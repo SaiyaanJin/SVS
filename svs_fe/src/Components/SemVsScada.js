@@ -27,7 +27,7 @@ import { InputSwitch } from "primereact/inputswitch";
 import { BlockUI } from "primereact/blockui";
 import { Divider } from "primereact/divider";
 import zoomPlugin from "chartjs-plugin-zoom";
-
+import { SplitButton } from "primereact/splitbutton";
 
 function SemVsScada(params) {
 	const items = Array.from({ length: 14 }, (v, i) => i);
@@ -64,6 +64,44 @@ function SemVsScada(params) {
 	ChartJS.register(...registerables, zoomPlugin);
 
 	const baseURL = process.env.REACT_APP_API_BASE_URL;
+
+	const file_buttons = [
+		{
+			label: "All PDF Plots",
+			icon: "pi pi-file-pdf",
+			command: () => {
+				window.location.href =
+					`${baseURL}/graph_pdf?startDate=` +
+					moment(start_date).format("DD-MM-YYYY") +
+					"&endDate=" +
+					moment(end_date).format("DD-MM-YYYY");
+			},
+			style: { color: "red" },
+		},
+		{
+			label: "Error List",
+			icon: "pi pi-ban",
+			command: () => {
+				window.location.href =
+					`${baseURL}/GetErrorExcel?startDate=` +
+					moment(start_date).format("DD-MM-YYYY") +
+					"&endDate=" +
+					moment(end_date).format("DD-MM-YYYY");
+			},
+			style: { color: "red" },
+		},
+		{
+			label: "All Data(.xlsx)",
+			icon: "pi pi-file-excel",
+			command: () => {
+				window.location.href =
+					`${baseURL}/GetSvSExcel?startDate=` +
+					moment(start_date).format("DD-MM-YYYY") +
+					"&endDate=" +
+					moment(end_date).format("DD-MM-YYYY");
+			},
+		},
+	];
 
 	const zoomOptions = {
 		zoom: {
@@ -218,7 +256,6 @@ function SemVsScada(params) {
 						{}
 					)
 					.then((response) => {
-						
 						seterror_names(response.data[1]);
 						setoriginal_data(response.data[0]);
 						setsvs_report(response.data[0].Data);
@@ -246,7 +283,6 @@ function SemVsScada(params) {
 						{}
 					)
 					.then((response) => {
-						
 						seterror_names(response.data[1]);
 						setoriginal_data(response.data[0]);
 						setsvs_report(response.data[0].Data);
@@ -305,7 +341,7 @@ function SemVsScada(params) {
 				<div className="flex flex-wrap gap-1 justify-content-between align-items-center">
 					<div className="field">
 						<span className="p-input-icon-left">
-							<i className="pi pi-search" />
+							{/* <i className="pi pi-search" /> */}
 							<InputText
 								col={20}
 								value={globalFilterValue}
@@ -313,19 +349,11 @@ function SemVsScada(params) {
 								placeholder="Search Anything from Report"
 							/>
 						</span>
-						
-						{/* <Button
-							size="small"
-							severity="info"
-							label="Error List"
-							icon="pi pi-file-excel"
-							rounded
-							raised
-							onClick={() => error_list()}
-						/> */}
 					</div>
-					<div className="field"></div>
-					<div className="field"></div>
+					{/* <div className="field"></div> */}
+					{/* <div className="field"></div> */}
+					{/* <div className="field"></div> */}
+					{/* <div className="field"></div> */}
 					<div className="field">
 						<span className="p-input-icon-left">
 							<Button
@@ -339,7 +367,22 @@ function SemVsScada(params) {
 						</span>
 					</div>
 					<div className="field">
-						<a
+						<SplitButton
+							size="small"
+							rounded
+							label="Download Letters(.zip)"
+							icon="pi pi-download"
+							onClick={() => {
+								window.location.href =
+									`${baseURL}/letters_zip?startDate=` +
+									moment(start_date).format("DD-MM-YYYY") +
+									"&endDate=" +
+									moment(end_date).format("DD-MM-YYYY");
+							}}
+							model={file_buttons}
+							severity="info"
+						/>
+						{/* <a
 							href={
 								`${baseURL}/letters_zip?startDate=` +
 								moment(start_date).format("DD-MM-YYYY") +
@@ -359,7 +402,7 @@ function SemVsScada(params) {
 
 						<a
 							href={
-								`${baseURL}/GetSvSExcel?startDate=`+
+								`${baseURL}/GetSvSExcel?startDate=` +
 								moment(start_date).format("DD-MM-YYYY") +
 								"&endDate=" +
 								moment(end_date).format("DD-MM-YYYY")
@@ -392,6 +435,23 @@ function SemVsScada(params) {
 								shape="circle"
 							/>
 						</a>
+						<a
+							href={
+								`${baseURL}/graph_pdf?startDate=` +
+								moment(start_date).format("DD-MM-YYYY") +
+								"&endDate=" +
+								moment(end_date).format("DD-MM-YYYY")
+							}
+						>
+							<b style={{ fontSize: "medium", fontStyle: "revert-layer" }}>
+								PDF Plots
+							</b>
+							<Avatar
+								icon="pi-file-pdf"
+								style={{ backgroundColor: "red", color: "#ffffff" }}
+								shape="circle"
+							/>
+						</a> */}
 					</div>
 				</div>
 			</div>
@@ -425,7 +485,7 @@ function SemVsScada(params) {
 							var Far_table_val1 = [];
 							var far_name = selectedrows[0].Feeder_Name.split("_");
 
-							if (far_name.length===4) {
+							if (far_name.length === 4) {
 								far_name =
 									far_name[0] +
 									"_" +
@@ -434,7 +494,7 @@ function SemVsScada(params) {
 									far_name[1] +
 									"_" +
 									far_name[3];
-							} else if (far_name.length===3) {
+							} else if (far_name.length === 3) {
 								far_name = far_name[0] + "_" + far_name[2] + "_" + far_name[1];
 							} else {
 								far_name = selectedrows[0].Feeder_Name;
@@ -656,83 +716,81 @@ function SemVsScada(params) {
 
 							var all_datasets = [];
 
-							{
-								selectedrows.map((f) => {
-									var far_name1 = f.Feeder_Name.split("_");
+							selectedrows.map((f) => {
+								var far_name1 = f.Feeder_Name.split("_");
 
-									if (far_name1.length===4) {
-										far_name1 =
-											far_name1[0] +
-											"_" +
-											far_name1[2] +
-											"_" +
-											far_name1[1] +
-											"_" +
-											far_name1[3];
-									} else if (far_name1.length===3) {
-										far_name1 =
-											far_name1[0] + "_" + far_name1[2] + "_" + far_name1[1];
-									} else {
-										far_name1 = f.Feeder_Name;
-									}
-									Far_table_val1.push({
-										Feeder_Name: "Far End: " + far_name1,
-										SCADA_Key: f.Key_Far_End,
-										SEM_Key: f.Meter_Far_End,
-										SCADA_vs_SCADA: f.scada_avg + " %",
-										SEM_vs_SEM: f.sem_avg + " %",
-										To_End_Error: f.to_end_avg_val + " %",
-										Far_End_Error: f.far_end_avg_val + " %",
-									});
-
-									all_datasets.push(
-										{
-											label:
-												"SEM vs SCADA plot of " +
-												far_name1 +
-												" Far End (" +
-												f.Meter_Far_End +
-												" vs " +
-												f.Key_Far_End +
-												")",
-											data: f.far_end_percent,
-											fill: false,
-											borderColor:
-												documentStyle.getPropertyValue("--green-200"),
-											tension: 0.4,
-											yAxisID: "y1",
-											hidden: true,
-										},
-										{
-											label:
-												"SCADA plot of " +
-												far_name1 +
-												" Far End (" +
-												f.Key_Far_End +
-												")",
-											data: f.Scada_Far_End_data,
-											fill: false,
-											borderColor: documentStyle.getPropertyValue("--blue-500"),
-											tension: 0.4,
-											yAxisID: "y",
-										},
-
-										{
-											label:
-												"SEM plot of " +
-												far_name1 +
-												" Far End (" +
-												f.Meter_Far_End +
-												")",
-											data: f.Meter_Far_End_data,
-											fill: false,
-											borderColor: documentStyle.getPropertyValue("--pink-500"),
-											tension: 0.4,
-											yAxisID: "y",
-										}
-									);
+								if (far_name1.length === 4) {
+									far_name1 =
+										far_name1[0] +
+										"_" +
+										far_name1[2] +
+										"_" +
+										far_name1[1] +
+										"_" +
+										far_name1[3];
+								} else if (far_name1.length === 3) {
+									far_name1 =
+										far_name1[0] + "_" + far_name1[2] + "_" + far_name1[1];
+								} else {
+									far_name1 = f.Feeder_Name;
+								}
+								Far_table_val1.push({
+									Feeder_Name: "Far End: " + far_name1,
+									SCADA_Key: f.Key_Far_End,
+									SEM_Key: f.Meter_Far_End,
+									SCADA_vs_SCADA: f.scada_avg + " %",
+									SEM_vs_SEM: f.sem_avg + " %",
+									To_End_Error: f.to_end_avg_val + " %",
+									Far_End_Error: f.far_end_avg_val + " %",
 								});
-							}
+
+								all_datasets.push(
+									{
+										label:
+											"SEM vs SCADA plot of " +
+											far_name1 +
+											" Far End (" +
+											f.Meter_Far_End +
+											" vs " +
+											f.Key_Far_End +
+											")",
+										data: f.far_end_percent,
+										fill: false,
+										borderColor: documentStyle.getPropertyValue("--green-200"),
+										tension: 0.4,
+										yAxisID: "y1",
+										hidden: true,
+									},
+									{
+										label:
+											"SCADA plot of " +
+											far_name1 +
+											" Far End (" +
+											f.Key_Far_End +
+											")",
+										data: f.Scada_Far_End_data,
+										fill: false,
+										borderColor: documentStyle.getPropertyValue("--blue-500"),
+										tension: 0.4,
+										yAxisID: "y",
+									},
+
+									{
+										label:
+											"SEM plot of " +
+											far_name1 +
+											" Far End (" +
+											f.Meter_Far_End +
+											")",
+										data: f.Meter_Far_End_data,
+										fill: false,
+										borderColor: documentStyle.getPropertyValue("--pink-500"),
+										tension: 0.4,
+										yAxisID: "y",
+									}
+								);
+							});
+
 							data["datasets"] = all_datasets;
 							setFar_table_val(Far_table_val1);
 
@@ -820,7 +878,7 @@ function SemVsScada(params) {
 
 							var far_name2 = e.Feeder_Name.split("_");
 
-							if (far_name2.length===4) {
+							if (far_name2.length === 4) {
 								far_name2 =
 									far_name2[0] +
 									"_" +
@@ -829,7 +887,7 @@ function SemVsScada(params) {
 									far_name2[1] +
 									"_" +
 									far_name2[3];
-							} else if (far_name2.length===3) {
+							} else if (far_name2.length === 3) {
 								far_name2 =
 									far_name2[0] + "_" + far_name2[2] + "_" + far_name2[1];
 							} else {
@@ -998,7 +1056,7 @@ function SemVsScada(params) {
 
 							var far_name3 = selectedrows[0].Feeder_Name.split("_");
 
-							if (far_name3.length===4) {
+							if (far_name3.length === 4) {
 								far_name3 =
 									far_name3[0] +
 									"_" +
@@ -1007,7 +1065,7 @@ function SemVsScada(params) {
 									far_name3[1] +
 									"_" +
 									far_name3[3];
-							} else if (far_name3.length===3) {
+							} else if (far_name3.length === 3) {
 								far_name3 =
 									far_name3[0] + "_" + far_name3[2] + "_" + far_name3[1];
 							} else {
@@ -1231,66 +1289,64 @@ function SemVsScada(params) {
 
 							var all_datasets = [];
 
-							{
-								selectedrows.map((g) => {
-									To_table_val1.push({
-										Feeder_Name: "To End: " + selectedrows[0].Feeder_Name,
-										SCADA_Key: selectedrows[0].Key_To_End,
-										SEM_Key: selectedrows[0].Meter_To_End,
-										SCADA_vs_SCADA: selectedrows[0].scada_avg + " %",
-										SEM_vs_SEM: selectedrows[0].sem_avg + " %",
-										To_End_Error: selectedrows[0].to_end_avg_val + " %",
-										Far_End_Error: selectedrows[0].far_end_avg_val + " %",
-									});
-
-									all_datasets.push(
-										{
-											label:
-												"SEM vs SCADA plot of " +
-												g.Feeder_Name +
-												" To End (" +
-												g.Meter_To_End +
-												" vs " +
-												g.Key_To_End +
-												")",
-											data: g.to_end_percent,
-											fill: false,
-											borderColor:
-												documentStyle.getPropertyValue("--green-200"),
-											tension: 0.4,
-											yAxisID: "y1",
-											hidden: true,
-										},
-										{
-											label:
-												"SCADA plot of " +
-												g.Feeder_Name +
-												" To End (" +
-												g.Key_To_End +
-												")",
-											data: g.Scada_To_End_data,
-											fill: false,
-											borderColor: documentStyle.getPropertyValue("--blue-500"),
-											tension: 0.4,
-											yAxisID: "y",
-										},
-
-										{
-											label:
-												"SEM plot of " +
-												g.Feeder_Name +
-												" To End (" +
-												g.Meter_To_End +
-												")",
-											data: g.Meter_To_End_data,
-											fill: false,
-											borderColor: documentStyle.getPropertyValue("--pink-500"),
-											tension: 0.4,
-											yAxisID: "y",
-										}
-									);
+							selectedrows.map((g) => {
+								To_table_val1.push({
+									Feeder_Name: "To End: " + selectedrows[0].Feeder_Name,
+									SCADA_Key: selectedrows[0].Key_To_End,
+									SEM_Key: selectedrows[0].Meter_To_End,
+									SCADA_vs_SCADA: selectedrows[0].scada_avg + " %",
+									SEM_vs_SEM: selectedrows[0].sem_avg + " %",
+									To_End_Error: selectedrows[0].to_end_avg_val + " %",
+									Far_End_Error: selectedrows[0].far_end_avg_val + " %",
 								});
-							}
+
+								all_datasets.push(
+									{
+										label:
+											"SEM vs SCADA plot of " +
+											g.Feeder_Name +
+											" To End (" +
+											g.Meter_To_End +
+											" vs " +
+											g.Key_To_End +
+											")",
+										data: g.to_end_percent,
+										fill: false,
+										borderColor: documentStyle.getPropertyValue("--green-200"),
+										tension: 0.4,
+										yAxisID: "y1",
+										hidden: true,
+									},
+									{
+										label:
+											"SCADA plot of " +
+											g.Feeder_Name +
+											" To End (" +
+											g.Key_To_End +
+											")",
+										data: g.Scada_To_End_data,
+										fill: false,
+										borderColor: documentStyle.getPropertyValue("--blue-500"),
+										tension: 0.4,
+										yAxisID: "y",
+									},
+
+									{
+										label:
+											"SEM plot of " +
+											g.Feeder_Name +
+											" To End (" +
+											g.Meter_To_End +
+											")",
+										data: g.Meter_To_End_data,
+										fill: false,
+										borderColor: documentStyle.getPropertyValue("--pink-500"),
+										tension: 0.4,
+										yAxisID: "y",
+									}
+								);
+							});
+
 							setTo_table_val(To_table_val1);
 							data["datasets"] = all_datasets;
 
@@ -1523,7 +1579,7 @@ function SemVsScada(params) {
 
 		var rev_far_name = e.Feeder_Name.split("_");
 
-		if (rev_far_name.length===4) {
+		if (rev_far_name.length === 4) {
 			rev_far_name =
 				rev_far_name[0] +
 				"_" +
@@ -1532,7 +1588,7 @@ function SemVsScada(params) {
 				rev_far_name[1] +
 				"_" +
 				rev_far_name[3];
-		} else if (rev_far_name.length===3) {
+		} else if (rev_far_name.length === 3) {
 			rev_far_name =
 				rev_far_name[0] + "_" + rev_far_name[2] + "_" + rev_far_name[1];
 		} else {
@@ -1696,7 +1752,7 @@ function SemVsScada(params) {
 
 		var rev_far_name = e.Feeder_Name.split("_");
 
-		if (rev_far_name.length===4) {
+		if (rev_far_name.length === 4) {
 			rev_far_name =
 				rev_far_name[0] +
 				"_" +
@@ -1705,7 +1761,7 @@ function SemVsScada(params) {
 				rev_far_name[1] +
 				"_" +
 				rev_far_name[3];
-		} else if (rev_far_name.length===3) {
+		} else if (rev_far_name.length === 3) {
 			rev_far_name =
 				rev_far_name[0] + "_" + rev_far_name[2] + "_" + rev_far_name[1];
 		} else {
@@ -1919,8 +1975,6 @@ function SemVsScada(params) {
 				? "p-error"
 				: ""
 			: "";
-
-
 
 	return (
 		<>
@@ -2168,19 +2222,6 @@ function SemVsScada(params) {
 				<div className="field">
 					<span className="p-float-label">
 						Date Range:
-						{/* <Calendar
-								showIcon
-								placeholder="Start Date"
-								dateFormat="dd-mm-yy"
-								value={start_date}
-								onChange={(e) => {
-									setStart_Date(e.value);
-								}}
-								monthNavigator
-								yearNavigator
-								yearRange="2010:2025"
-								showButtonBar
-							></Calendar> */}
 						<Calendar
 							placeholder="Select Date Range"
 							dateFormat="dd/mm/yy"
@@ -2192,25 +2233,7 @@ function SemVsScada(params) {
 						/>
 					</span>
 				</div>
-				{/* <div className="field">
-						<span className="p-float-label">
-							<h4>To:</h4>
 
-							<Calendar
-								showIcon
-								placeholder="End Date"
-								dateFormat="dd-mm-yy"
-								value={end_date}
-								onChange={(e) => {
-									setEnd_Date(e.value);
-								}}
-								monthNavigator
-								yearNavigator
-								yearRange="2010:2025"
-								showButtonBar
-							></Calendar>
-						</span>
-					</div> */}
 				<div className="field">
 					<span className="p-float-label">
 						Offset Value:
@@ -2560,7 +2583,7 @@ function SemVsScada(params) {
 					<label htmlFor="input-rowclick">Row Click</label>
 				</div> */}
 				<DataTable
-				scrollHeight="830px"
+					scrollHeight="830px"
 					filters={filters}
 					globalFilterFields={[
 						"Feeder_Name",
@@ -2579,7 +2602,7 @@ function SemVsScada(params) {
 					tableStyle={{ minWidth: "50rem" }}
 					paginatorTemplate="RowsPerPageDropdown FirstPageLink PrevPageLink CurrentPageReport NextPageLink LastPageLink"
 					currentPageReportTemplate="Showing {first} to {last} of Total: {totalRecords} Tie-Lines"
-					scrollable					
+					scrollable
 					className="mt-4"
 					removableSort
 					value={svs_report}
@@ -2720,7 +2743,7 @@ function SemVsScada(params) {
 					></Column> */}
 
 					<Column
-					dataType="numeric"
+						dataType="numeric"
 						filterElement={avgFilterTemplate}
 						filter
 						filterField="scada_avg"
@@ -2738,7 +2761,7 @@ function SemVsScada(params) {
 						sortable
 					></Column>
 					<Column
-					dataType="numeric"
+						dataType="numeric"
 						filterElement={avgFilterTemplate}
 						filter
 						filterField="sem_avg"

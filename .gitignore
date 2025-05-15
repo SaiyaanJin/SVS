@@ -3,3 +3,6 @@ output/
 letters doc templates/
 .env
 .env.local
+svs_report.cpython-313.pyc
+Excel_Files/
+output/

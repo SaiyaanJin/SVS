@@ -1,4 +1,4 @@
-import logo from "./logo.svg";
+// import logo from "./logo.svg";
 import { Avatar } from "primereact/avatar";
 import { useState } from "react";
 import React from "react";
@@ -25,8 +25,13 @@ function App() {
 
 	return (
 		<div className="routes">
-			<div className="shadow-class" style={{ marginTop: ".2%", marginBottom: "2%" }}><img src="GI-Nav1.jpg" alt="posoco" style={{ width: "100%" }} /></div>
-			
+			<div
+				className="shadow-class"
+				style={{ marginTop: ".2%", marginBottom: "2%" }}
+			>
+				<img src="GI-Nav1.jpg" alt="posoco" style={{ width: "100%" }} />
+			</div>
+
 			<Router>
 				<div
 					className="list"

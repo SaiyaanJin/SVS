@@ -19,6 +19,17 @@ from werkzeug .utils import secure_filename
 from zipfile import ZipFile
 import numpy as np
 from docxtpl import DocxTemplate
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib.backends.backend_pdf import PdfPages
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
+from PyPDF2 import PdfMerger
+import uuid
+from matplotlib import pyplot as plt
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from flask import jsonify, send_file
+
 
 app = Flask(__name__)
 
@@ -127,7 +138,7 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
     global Global_letter_data
     global Global_data
 
-    CONNECTION_STRING = "mongodb://10.3.101.179:1434"
+    CONNECTION_STRING = "mongodb://10.3.230.94:1434"
     client = MongoClient(CONNECTION_STRING)
     db = client['meterDataArchival']
     
@@ -1606,3 +1617,174 @@ def gen_excel():
             data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
     return send_file(path, as_attachment=True, download_name='SVS')
+
+
+# Define the plot_feeder function outside of gen_graph_pdf
+def plot_feeder(feeder, x_labels, index):
+
+    feeder_name = feeder.get("Feeder_Name", f"Feeder_{index}")
+    file_path = f"output/tmp/{uuid.uuid4().hex}_feeder_{index}.pdf"
+
+    def safe_plot(ax, x, y, label, style, lw, color=None):
+        if y and len(y) > 0:
+            n = min(len(x), len(y))
+            ax.plot(x[:n], y[:n], label=label, linestyle=style, linewidth=lw, color=color)
+
+    def draw_table(ax, data_dict, title):
+        table_data = [[k, str(v)] for k, v in data_dict.items()]
+        table = ax.table(cellText=table_data,
+                         colLabels=["Field", "Value"],
+                         cellLoc='left',
+                         loc='center')
+        table.scale(1, 1.2)
+        ax.axis('off')
+        ax.set_title(title, fontsize=10, fontweight='bold')
+
+    with PdfPages(file_path) as pdf:
+        # Page 1 – To End
+        fig1, (ax1, ax1_table) = plt.subplots(2, 1, figsize=(14, 6), gridspec_kw={'height_ratios': [2, 1]})
+
+        # Primary Y-axis
+        safe_plot(ax1, x_labels, feeder.get("Meter_To_End_data", []), "Meter To End", '-', 1)
+        safe_plot(ax1, x_labels, feeder.get("Scada_To_End_data", []), "Scada To End", '--', 1)
+
+        # Secondary Y-axis for % Error
+        ax1b = ax1.twinx()
+        safe_plot(ax1b, x_labels, feeder.get("to_end_percent", []), "To End % Error", '-.', 1, color='tab:red')
+        ax1b.set_ylabel("% Error", fontsize=8, color='tab:red')
+        ax1b.tick_params(axis='y', labelsize=6, colors='tab:red')
+
+        # X-axis ticks
+        tick_interval = 10
+        xticks = list(range(0, len(x_labels), tick_interval))
+        ax1.set_xticks(xticks)
+        ax1.set_xticklabels([x_labels[i] for i in xticks], rotation=60, fontsize=5)
+
+        ax1.set_title(f"{feeder_name} – To End", fontsize=11, fontweight='bold')
+        ax1.set_xlabel("Date/Time", fontsize=8)
+        ax1.set_ylabel("Values", fontsize=8)
+        ax1.grid(True, linestyle='--', alpha=0.6)
+        ax1.legend(fontsize=7)
+
+        # Table below
+        table_fields = {
+            "Feeder Name": feeder.get("Feeder_Name", ""),
+            # "Feeder Hindi": feeder.get("Feeder_Hindi", ""),
+            "Meter To End": feeder.get("Meter_To_End", ""),
+            "Key To End": feeder.get("Key_To_End", ""),
+            "To End Avg": feeder.get("to_end_avg_val", ""),
+            "To End Max": feeder.get("to_end_max_val", ""),
+            "To End Min": feeder.get("to_end_min_val", ""),
+            "SCADA Avg": feeder.get("scada_avg", ""),
+            "SEM Avg": feeder.get("sem_avg", "")
+        }
+        draw_table(ax1_table, table_fields, "To End Summary")
+
+        fig1.tight_layout(pad=1.5)
+        pdf.savefig(fig1, dpi=72)
+        plt.close(fig1)
+
+        # Page 2 – Far End
+        fig2, (ax2, ax2_table) = plt.subplots(2, 1, figsize=(14, 6), gridspec_kw={'height_ratios': [2, 1]})
+
+        # Primary Y-axis
+        safe_plot(ax2, x_labels, feeder.get("Meter_Far_End_data", []), "Meter Far End", '-', 1)
+        safe_plot(ax2, x_labels, feeder.get("Scada_Far_End_data", []), "Scada Far End", '--', 1)
+
+        # Secondary Y-axis for % Error
+        ax2b = ax2.twinx()
+        safe_plot(ax2b, x_labels, feeder.get("far_end_percent", []), "Far End % Error", '-.', 1, color='tab:red')
+        ax2b.set_ylabel("% Error", fontsize=8, color='tab:red')
+        ax2b.tick_params(axis='y', labelsize=6, colors='tab:red')
+
+        # X-axis ticks
+        ax2.set_xticks(xticks)
+        ax2.set_xticklabels([x_labels[i] for i in xticks], rotation=60, fontsize=5)
+
+        ax2.set_title(f"{feeder_name} – Far End", fontsize=11, fontweight='bold')
+        ax2.set_xlabel("Date/Time", fontsize=8)
+        ax2.set_ylabel("Values", fontsize=8)
+        ax2.grid(True, linestyle='--', alpha=0.6)
+        ax2.legend(fontsize=7)
+
+        # Table below
+        table_fields_far = {
+            "Feeder Name": feeder.get("Feeder_Name", ""),
+            # "Feeder Hindi": feeder.get("Feeder_Hindi", ""),
+            "Meter Far End": feeder.get("Meter_Far_End", ""),
+            "Key Far End": feeder.get("Key_Far_End", ""),
+            "Far End Avg": feeder.get("far_end_avg_val", ""),
+            "Far End Max": feeder.get("far_end_max_val", ""),
+            "Far End Min": feeder.get("far_end_min_val", ""),
+            "SCADA Avg": feeder.get("scada_avg", ""),
+            "SEM Avg": feeder.get("sem_avg", "")
+        }
+        draw_table(ax2_table, table_fields_far, "Far End Summary")
+
+        fig2.tight_layout(pad=1.5)
+        pdf.savefig(fig2, dpi=72)
+        plt.close(fig2)
+
+    return file_path
+
+def gen_graph_pdf():
+    global Global_data
+    global Global_date
+
+    # Extract x_labels
+    if isinstance(Global_date, pd.DataFrame):
+        x_labels = Global_date['Date_Time'].tolist()
+    elif isinstance(Global_date, dict) and 'Date_Time' in Global_date:
+        x_labels = Global_date['Date_Time']
+    elif isinstance(Global_date, list):
+        x_labels = Global_date
+    else:
+        return jsonify({"error": "Invalid Global_date format"})
+
+    if not Global_data or not isinstance(Global_data, list):
+        return jsonify({"error": "Global_data is empty or invalid"})
+
+    os.makedirs("output/tmp", exist_ok=True)
+    output_pdf_path = "output/SVS_Graphs.pdf"
+
+    try:
+        if os.path.exists(output_pdf_path):
+            os.remove(output_pdf_path)
+    except PermissionError:
+        return jsonify({"error": "Close 'SVS_Graphs.pdf' and try again."})
+
+    # Run in parallel
+    feeder_paths = []
+    with ProcessPoolExecutor(max_workers=12) as executor:
+        futures = {
+            executor.submit(plot_feeder, feeder, x_labels, idx): idx
+            for idx, feeder in enumerate(Global_data)
+        }
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+                if result:
+                    feeder_paths.append(result)
+            except Exception as e:
+                print(f"Error processing feeder: {e}")
+
+    # Merge all into single PDF
+    if not feeder_paths:
+        return jsonify({"error": "No valid feeder data generated."})
+
+    merger = PdfMerger()
+    for pdf_path in feeder_paths:
+        if pdf_path:
+            merger.append(pdf_path)
+    merger.write(output_pdf_path)
+    merger.close()
+
+    # Cleanup
+    for f in feeder_paths:
+        try:
+            if f and os.path.exists(f):
+                os.remove(f)
+        except Exception as e:
+            print(f"Failed to remove {f}: {e}")
+
+    return send_file(output_pdf_path, as_attachment=True, download_name='SVS_Graphs.pdf')
