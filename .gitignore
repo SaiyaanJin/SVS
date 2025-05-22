@@ -6,3 +6,5 @@ letters doc templates/
 svs_report.cpython-313.pyc
 Excel_Files/
 output/
+__pycache__/
+svs_report.cpython-310.pyc

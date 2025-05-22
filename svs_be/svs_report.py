@@ -29,6 +29,9 @@ import uuid
 from matplotlib import pyplot as plt
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from flask import jsonify, send_file
+from collections import defaultdict
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 app = Flask(__name__)
@@ -127,68 +130,168 @@ Scada_database, meter_table, mapping_table = ScadaCollection()
 
 
 # /////////////////////////////////////////////SEM vs SCADA///////////////////////////////////////////////////
-
 def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
+    import concurrent.futures
+
+    def clean_keydata(keydata):
+        return [item for item in keydata if item.get('Deleted', 'No') != "Yes"]
+
+    def get_date_range(start, end):
+        start_dt = datetime.strptime(start, "%Y-%m-%d")
+        end_dt = datetime.strptime(end, "%Y-%m-%d")
+        return [start_dt + timedelta(days=x) for x in range((end_dt - start_dt).days + 1)]
+
+    def fetch_scada_data(code, date_range, db):
+        # Batch fetch all dates for a code in one query
+        filter = {
+            'Date': {'$gte': datetime(date_range[0].year, date_range[0].month, date_range[0].day, 0, 0, 0, tzinfo=timezone.utc),
+                     '$lte': datetime(date_range[-1].year, date_range[-1].month, date_range[-1].day, 0, 0, 0, tzinfo=timezone.utc)},
+            'Code': code
+        }
+        project = {'_id': 0, 'Data': 1, 'Date': 1}
+        cursor = Scada_database.find(filter=filter, projection=project).sort('Date', ASCENDING)
+        date_map = {d['Date'].date(): d.get('Data', []) for d in cursor}
+        data = []
+        for it in date_range:
+            vals = date_map.get(it.date(), [])
+            if vals:
+                data += [0 if pd.isna(val) else round(val, 2) for val in vals]
+            else:
+                data += [0] * 96
+        return data
+
+    def fetch_meter_data(meter_id, date_range, db):
+        # Batch fetch all dates for a meter in one query per year
+        data = []
+        years = sorted(set(it.year for it in date_range))
+        date_map = {}
+        for year in years:
+            Data_Table = db["meterData" + str(year)]
+            filter = {
+                'date': {'$gte': datetime(year, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                         '$lte': datetime(year, 12, 31, 0, 0, 0, tzinfo=timezone.utc)},
+                'meterID': meter_id
+            }
+            project = {'_id': 0, 'data': 1, 'date': 1}
+            cursor = Data_Table.find(filter=filter, projection=project)
+            for d in cursor:
+                date_map[d['date'].date()] = d.get('data', [])
+        for it in date_range:
+            vals = date_map.get(it.date(), [])
+            if vals:
+                data += [0 if pd.isna(val) else round(4 * val, 2) for val in vals]
+            else:
+                data += [0] * 96
+        return data
+
+    def fetch_meter_data_from_file(meter_code, date_range):
+        data = []
+        filter = {'Meter_Code': meter_code}
+        cursor2 = meter_table.find(filter=filter, projection={'_id': 0})
+        cursor2_list = list(cursor2)
+        if not cursor2_list:
+            return data
+        meters = cursor2_list[0]["Meter_Name"] + ".MWH"
+        path = "Meter_Files/"
+        for dates in date_range:
+            full_path = os.path.join(path, dates.strftime("%d-%m-%y"))
+            if os.path.isdir(full_path):
+                file_path = os.path.join(full_path, meters)
+                if os.path.exists(file_path):
+                    dataEnd1 = pd.read_csv(file_path, header=None)
+                    dfEnd1 = dataEnd1[0]
+                    for i in range(1, len(dfEnd1)):
+                        oneHourDataEnd1 = [changeToFloat(x) for x in dfEnd1[i].split()[1:]]
+                        data += [0 if pd.isna(x) else round(4 * x, 2) for x in oneHourDataEnd1]
+        return data
+
+    def add_error(feeder_name, semvsscada_dict, error_names, Global_error_list, lock=None):
+        if lock:
+            with lock:
+                if feeder_name not in error_names:
+                    error_names.append(feeder_name)
+                    xyz = semvsscada_dict.copy()
+                    for k in ['Meter_Far_End_data', 'Meter_To_End_data', 'Scada_Far_End_data', 'Scada_To_End_data']:
+                        xyz.pop(k, None)
+                    Global_error_list.append(xyz)
+        else:
+            if feeder_name not in error_names:
+                error_names.append(feeder_name)
+                xyz = semvsscada_dict.copy()
+                for k in ['Meter_Far_End_data', 'Meter_To_End_data', 'Scada_Far_End_data', 'Scada_To_End_data']:
+                    xyz.pop(k, None)
+                Global_error_list.append(xyz)
 
     startDateObj = datetime.strptime(startDate, "%Y-%m-%d")
     endDateObj = datetime.strptime(endDate, "%Y-%m-%d")
-
-    global Global_date
-    global Global_error_list
-    global Global_letter_data
-    global Global_data
-
+    global Global_date, Global_error_list, Global_letter_data, Global_data
     CONNECTION_STRING = "mongodb://10.3.230.94:1434"
     client = MongoClient(CONNECTION_STRING)
     db = client['meterDataArchival']
-    
-
-    cursor = mapping_table.find(
-        filter={}, projection={'_id': 0})
-
-    keydata = list(cursor)
-
-    i = 0
-
-    for item in range(len(keydata)):
-        try:
-            if keydata[item+i]['Deleted'] == "Yes":
-                keydata.pop(item+i)
-                i -= 1
-        except:
-            pass
-
-    allDateTime = [dt.strftime("%d-%m-%Y %H:%M:%S") for dt in
-                datetime_range(startDateObj, endDateObj,
-                                timedelta(minutes=time))]
-
+    cursor = mapping_table.find(filter={}, projection={'_id': 0})
+    keydata = clean_keydata(list(cursor))
+    allDateTime = [dt.strftime("%d-%m-%Y %H:%M:%S") for dt in datetime_range(startDateObj, endDateObj, timedelta(minutes=time))]
     final_data_to_send = {'Date_Time': allDateTime}
     final_data_to_send1 = []
-
-    df1 = pd.DataFrame.from_dict({'Date_Time': allDateTime})
-
+    df1 = pd.DataFrame({'Date_Time': allDateTime})
     Global_date = df1
 
-    BH = []
-    DV = []
-    GR = []
+    lookupDictionary = defaultdict(list)
+    error_names = []
+    constituent_keys = ['BH', 'DV', 'GR', 'JH', 'MIS_CALC_TO', 'NTPC_ER_1', 'NTPC_ODISHA', 'PG_ER1', 'PG_ER2', 'WB', 'SI', 'PG_odisha_project']
 
-    JH = []
-    MIS_CALC_TO = []
-    NTPC_ER_1 = []
+    error_lock = threading.Lock()
+    append_lock = threading.Lock()
 
-    NTPC_ODISHA = []
-    PG_ER1 = []
-    PG_ER2 = []
+    date_range = get_date_range(startDate, endDate)
 
-    WB = []
-    SI = []
-    PG_odisha_project = []
-
-    error_names= []
-
+    # Pre-fetch all SCADA and Meter data for all unique keys in parallel
+    # Build sets of all keys to fetch
+    scada_keys = set()
+    meter_keys = set()
     for item in keydata:
+        if item['Key_To_End'].split(":")[0] not in ["No Key", "Duplicate Key"]:
+            scada_keys.add(item['Key_To_End'])
+        if item['Key_Far_End'].split(":")[0] not in ["No Key", "Duplicate Key"]:
+            scada_keys.add(item['Key_Far_End'])
+        if item['Meter_To_End'].split(":")[0] not in ["No Key", "Duplicate Key"]:
+            meter_keys.add(item['Meter_To_End'])
+        if item['Meter_Far_End'].split(":")[0] not in ["No Key", "Duplicate Key"]:
+            meter_keys.add(item['Meter_Far_End'])
 
+    # Parallel fetch for SCADA
+    scada_data_dict = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        future_to_key = {executor.submit(fetch_scada_data, key, date_range, db): key for key in scada_keys}
+        for future in concurrent.futures.as_completed(future_to_key):
+            key = future_to_key[future]
+            try:
+                scada_data_dict[key] = future.result()
+            except Exception:
+                scada_data_dict[key] = [0] * (len(date_range) * 96)
+
+    # Parallel fetch for Meter
+    meter_data_dict = {}
+    if folder == "no":
+        with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+            future_to_key = {executor.submit(fetch_meter_data, key, date_range, db): key for key in meter_keys}
+            for future in concurrent.futures.as_completed(future_to_key):
+                key = future_to_key[future]
+                try:
+                    meter_data_dict[key] = future.result()
+                except Exception:
+                    meter_data_dict[key] = [0] * (len(date_range) * 96)
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+            future_to_key = {executor.submit(fetch_meter_data_from_file, key, date_range): key for key in meter_keys}
+            for future in concurrent.futures.as_completed(future_to_key):
+                key = future_to_key[future]
+                try:
+                    meter_data_dict[key] = future.result()
+                except Exception:
+                    meter_data_dict[key] = [0] * (len(date_range) * 96)
+
+    def process_item(item):
         Feeder_Name = item['Feeder_Name']
         Feeder_Hindi = item['Feeder_Hindi']
         Key_To_End = item['Key_To_End']
@@ -197,1065 +300,290 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
         Meter_Far_End = item['Meter_Far_End']
         Feeder_From = item['Feeder_From']
         To_Feeder = item['To_Feeder']
-
         semvsscada_dict = {
-            'Feeder_Name': item['Feeder_Name'],
-            'Feeder_Hindi': item['Feeder_Hindi'],
-            'Key_To_End': item['Key_To_End'],
-            'Key_Far_End': item['Key_Far_End'],
-            'Meter_To_End': item['Meter_To_End'],
-            'Meter_Far_End': item['Meter_Far_End'],
-            'Feeder_From': item['Feeder_From'],
-            'To_Feeder': item['To_Feeder']
+            'Feeder_Name': Feeder_Name,
+            'Feeder_Hindi': Feeder_Hindi,
+            'Key_To_End': Key_To_End,
+            'Key_Far_End': Key_Far_End,
+            'Meter_To_End': Meter_To_End,
+            'Meter_Far_End': Meter_Far_End,
+            'Feeder_From': Feeder_From,
+            'To_Feeder': To_Feeder
         }
 
-        scada_database_data_to = []
-        meter_database_data_to = []
-        scada_database_data_far = []
-        meter_database_data_far = []
-
-        startDateObj = datetime.strptime(startDate, "%Y-%m-%d")
-        endDateObj = datetime.strptime(endDate, "%Y-%m-%d")
-
-        date_range = [startDateObj+timedelta(days=x)
-                    for x in range((endDateObj-startDateObj).days+1)]
-
-        if ((Key_To_End.split(":")[0] != "No Key" or Key_To_End.split(":")[0] != "Duplicate Key") and (Meter_To_End.split(":")[0] != "No Key" or Meter_To_End.split(":")[0] != "Duplicate Key")):
+        # To End Data
+        valid_to_end = (Key_To_End.split(":")[0] not in ["No Key", "Duplicate Key"]) and (Meter_To_End.split(":")[0] not in ["No Key", "Duplicate Key"])
+        if valid_to_end:
             try:
-
-                for it in date_range:
-
-                    filter = {
-                        'Date': {
-                            '$gte': datetime(it.year, it.month, it.day, 0, 0, 0, tzinfo=timezone.utc),
-                            '$lte': datetime(it.year, it.month, it.day, 0, 0, 0, tzinfo=timezone.utc)
-                        },
-                        'Code': Key_To_End
-                    }
-                    project = {
-                        '_id': 0,
-                        'Data': 1,
-                        'Date': 1,
-                    }
-
-                    cursor1 = Scada_database.find(
-                        filter=filter, projection=project)
-
-                    data1 = list(cursor1)
-
-                    if len(data1[0]['Data']) > 0:
-                        for ite in range(len(data1[0]['Data'])):
-                            if data1[0]['Data'][ite] != data1[0]['Data'][ite]:
-                                data1[0]['Data'][ite] = 0
-
-                            else:
-                                data1[0]['Data'][ite] = round(
-                                    data1[0]['Data'][ite], 2)
-
-                        scada_database_data_to = scada_database_data_to + \
-                            data1[0]['Data']
-
-                    else:
-                        scada_database_data_to = scada_database_data_to + \
-                            [0]*96
-                        
-                        if Feeder_Name not in error_names:
-                            error_names.append(Feeder_Name)
-                            xyz = semvsscada_dict.copy()
-
-                            try:
-                                xyz.pop('Meter_Far_End_data', None)
-                            except:
-                                pass
-                            try:
-                                xyz.pop('Meter_To_End_data', None)
-                            except:
-                                pass
-                            try:
-                                xyz.pop('Scada_Far_End_data', None)
-                            except:
-                                pass
-                            try:
-                                xyz.pop('Scada_To_End_data', None)
-                            except:
-                                pass
-                            Global_error_list.append(xyz)
-
+                scada_database_data_to = scada_data_dict.get(Key_To_End, [0] * (len(date_range) * 96))
+                if not scada_database_data_to:
+                    scada_database_data_to = [0] * (len(date_range) * 96)
+                    add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
                 semvsscada_dict['Scada_To_End_data'] = scada_database_data_to
 
-                if folder == "no":
-
-                    for it in date_range:
-
-                        filter = {
-                            'date': {
-                                '$gte': datetime(it.year, it.month, it.day, 0, 0, 0, tzinfo=timezone.utc),
-                                '$lte': datetime(it.year, it.month, it.day, 0, 0, 0, tzinfo=timezone.utc)
-                            },
-                            'meterID': Meter_To_End
-                        }
-                        project = {
-                            '_id': 0,
-                            'data': 1,
-                            'date': 1,
-                        }
-
-                        Data_Table = db["meterData"+str(it.year)]
-
-                        cursor2 = Data_Table.find(
-                            filter=filter, projection=project)
-
-                        data2 = list(cursor2)
-
-                        if len(data2[0]['data']) > 0:
-                            for item in range(len(data2[0]['data'])):
-                                if data2[0]['data'][item] != data2[0]['data'][item]:
-                                    data2[0]['data'][item] = 0
-
-                                else:
-                                    data2[0]['data'][item] = 4 * \
-                                        data2[0]['data'][item]
-
-                                    data2[0]['data'][item] = round(
-                                        data2[0]['data'][item], 2)
-
-                            meter_database_data_to = meter_database_data_to + \
-                                data2[0]['data']
-
-                        else:
-                            meter_database_data_to = meter_database_data_to + \
-                                [0]*96
-                            
-                            if Feeder_Name not in error_names:
-                                error_names.append(Feeder_Name)
-                                xyz = semvsscada_dict.copy()
-
-                                try:
-                                    xyz.pop('Meter_Far_End_data', None)
-                                except:
-                                    pass
-                                try:
-                                    xyz.pop('Meter_To_End_data', None)
-                                except:
-                                    pass
-                                try:
-                                    xyz.pop('Scada_Far_End_data', None)
-                                except:
-                                    pass
-                                try:
-                                    xyz.pop('Scada_To_End_data', None)
-                                except:
-                                    pass
-                                Global_error_list.append(xyz)
-
-                    semvsscada_dict['Meter_To_End_data'] = meter_database_data_to
-
-                if folder == "yes":
-
-                    path = "Meter_Files/"
-
-                    filter = {'Meter_Code': Meter_To_End}
-
-                    cursor2 = meter_table.find(
-                        filter=filter, projection={'_id': 0})
-
-                    cursor2_list = list(cursor2)
-
-                    meters = cursor2_list[0]["Meter_Name"]+".MWH"
-
-                    for dates in ([startDateObj+timedelta(days=x) for x in range((endDateObj-startDateObj).days+1)]):
-
-                        full_path = path+dates.strftime("%d-%m-%y")
-
-                        if (os.path.isdir(full_path)):
-
-                            full_path = full_path+"/"+meters
-
-                            dataEnd1 = pd.read_csv(full_path, header=None)
-                            dfSeriesEnd1 = pd.DataFrame(dataEnd1)
-                            dfEnd1 = dfSeriesEnd1[0]
-
-                            for i in range(1, len(dfEnd1)):
-                                oneHourDataEnd1 = [changeToFloat(
-                                    x) for x in dfEnd1[i].split()[1:]]
-
-                                for item in range(len(oneHourDataEnd1)):
-                                    if oneHourDataEnd1[item] != oneHourDataEnd1[item]:
-                                        oneHourDataEnd1[item] = 0
-
-                                    else:
-                                        oneHourDataEnd1[item] = 4 * \
-                                            oneHourDataEnd1[item]
-
-                                        oneHourDataEnd1[item] = round(
-                                            oneHourDataEnd1[item], 2)
-
-                                meter_database_data_to = meter_database_data_to + oneHourDataEnd1
-
-                    semvsscada_dict['Meter_To_End_data'] = meter_database_data_to
-
-            except:
-                semvsscada_dict['Scada_To_End_data'] = [0]*(len(date_range)*96)
-                semvsscada_dict['Meter_To_End_data'] = [0]*(len(date_range)*96)
-
-                if Feeder_Name not in error_names:
-                    error_names.append(Feeder_Name)
-                    xyz = semvsscada_dict.copy()
-
-                    try:
-                        xyz.pop('Meter_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Meter_To_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_To_End_data', None)
-                    except:
-                        pass
-                    Global_error_list.append(xyz)
-
+                meter_database_data_to = meter_data_dict.get(Meter_To_End, [0] * (len(date_range) * 96))
+                if not meter_database_data_to:
+                    meter_database_data_to = [0] * (len(date_range) * 96)
+                    add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
+                semvsscada_dict['Meter_To_End_data'] = meter_database_data_to
+            except Exception:
+                semvsscada_dict['Scada_To_End_data'] = [0] * (len(date_range) * 96)
+                semvsscada_dict['Meter_To_End_data'] = [0] * (len(date_range) * 96)
+                add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
         else:
-            semvsscada_dict['Scada_To_End_data'] = [0]*(len(date_range)*96)
-            semvsscada_dict['Meter_To_End_data'] = [0]*(len(date_range)*96)
+            semvsscada_dict['Scada_To_End_data'] = [0] * (len(date_range) * 96)
+            semvsscada_dict['Meter_To_End_data'] = [0] * (len(date_range) * 96)
+            add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
 
-            if Feeder_Name not in error_names:
-                error_names.append(Feeder_Name)
-                xyz = semvsscada_dict.copy()
-
-                try:
-                    xyz.pop('Meter_Far_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Meter_To_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Scada_Far_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Scada_To_End_data', None)
-                except:
-                    pass
-                Global_error_list.append(xyz)
-
-        if ((Key_Far_End.split(":")[0] != "No Key" or Key_Far_End.split(":")[0] != "Duplicate Key") and (Meter_Far_End.split(":")[0] != "No Key" or Meter_Far_End.split(":")[0] != "Duplicate Key")):
-
+        # Far End Data
+        valid_far_end = (Key_Far_End.split(":")[0] not in ["No Key", "Duplicate Key"]) and (Meter_Far_End.split(":")[0] not in ["No Key", "Duplicate Key"])
+        if valid_far_end:
             try:
-
-                scada_database_data_to = []
-                meter_database_data_to = []
-
-                for it in date_range:
-
-                    filter = {
-                        'Date': {
-                            '$gte': datetime(it.year, it.month, it.day, 0, 0, 0, tzinfo=timezone.utc),
-                            '$lte': datetime(it.year, it.month, it.day, 0, 0, 0, tzinfo=timezone.utc)
-                        },
-                        'Code': Key_Far_End
-                    }
-                    project = {
-                        '_id': 0,
-                        'Data': 1,
-                        'Date': 1,
-                    }
-
-                    cursor1 = Scada_database.find(
-                        filter=filter, projection=project)
-
-                    data1 = list(cursor1)
-
-                    if len(data1[0]['Data']) > 0:
-                        for ite in range(len(data1[0]['Data'])):
-                            if data1[0]['Data'][ite] != data1[0]['Data'][ite]:
-                                data1[0]['Data'][ite] = 0
-
-                            else:
-                                data1[0]['Data'][ite] = round(
-                                    data1[0]['Data'][ite], 2)
-
-                        scada_database_data_far = scada_database_data_far + \
-                            data1[0]['Data']
-
-                    else:
-                        scada_database_data_far = scada_database_data_far + \
-                            [0]*96
-                        
-                        if Feeder_Name not in error_names:
-                            error_names.append(Feeder_Name)
-                            xyz = semvsscada_dict.copy()
-
-                            try:
-                                xyz.pop('Meter_Far_End_data', None)
-                            except:
-                                pass
-                            try:
-                                xyz.pop('Meter_To_End_data', None)
-                            except:
-                                pass
-                            try:
-                                xyz.pop('Scada_Far_End_data', None)
-                            except:
-                                pass
-                            try:
-                                xyz.pop('Scada_To_End_data', None)
-                            except:
-                                pass
-                            Global_error_list.append(xyz)
-
+                scada_database_data_far = scada_data_dict.get(Key_Far_End, [0] * (len(date_range) * 96))
+                if not scada_database_data_far:
+                    scada_database_data_far = [0] * (len(date_range) * 96)
+                    add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
                 semvsscada_dict['Scada_Far_End_data'] = scada_database_data_far
 
-                if folder == "no":
-
-                    for it in date_range:
-
-                        filter = {
-                            'date': {
-                                '$gte': datetime(it.year, it.month, it.day, 0, 0, 0, tzinfo=timezone.utc),
-                                '$lte': datetime(it.year, it.month, it.day, 0, 0, 0, tzinfo=timezone.utc)
-                            },
-                            'meterID': Meter_Far_End
-                        }
-                        project = {
-                            '_id': 0,
-                            'data': 1,
-                            'date': 1,
-                        }
-
-                        Data_Table = db["meterData"+str(it.year)]
-
-                        cursor2 = Data_Table.find(
-                            filter=filter, projection=project)
-
-                        data2 = list(cursor2)
-
-                        if len(data2[0]['data']) > 0:
-                            for item in range(len(data2[0]['data'])):
-                                if data2[0]['data'][item] != data2[0]['data'][item]:
-                                    data2[0]['data'][item] = 0
-
-                                else:
-                                    data2[0]['data'][item] = 4 * \
-                                        data2[0]['data'][item]
-
-                                    data2[0]['data'][item] = round(
-                                        data2[0]['data'][item], 2)
-
-                            meter_database_data_far = meter_database_data_far + \
-                                data2[0]['data']
-
-                        else:
-                            meter_database_data_far = meter_database_data_far + \
-                                [0]*96
-                            
-                            if Feeder_Name not in error_names:
-                                error_names.append(Feeder_Name)
-                                xyz = semvsscada_dict.copy()
-
-                                try:
-                                    xyz.pop('Meter_Far_End_data', None)
-                                except:
-                                    pass
-                                try:
-                                    xyz.pop('Meter_To_End_data', None)
-                                except:
-                                    pass
-                                try:
-                                    xyz.pop('Scada_Far_End_data', None)
-                                except:
-                                    pass
-                                try:
-                                    xyz.pop('Scada_To_End_data', None)
-                                except:
-                                    pass
-                                Global_error_list.append(xyz)
-
-                    semvsscada_dict['Meter_Far_End_data'] = meter_database_data_far
-
-                if folder == "yes":
-
-                    path = "Meter_Files/"
-
-                    filter = {'Meter_Code': Meter_Far_End}
-
-                    cursor2 = meter_table.find(
-                        filter=filter, projection={'_id': 0})
-
-                    cursor2_list = list(cursor2)
-
-                    meters = cursor2_list[0]["Meter_Name"]+".MWH"
-
-                    for dates in ([startDateObj+timedelta(days=x) for x in range((endDateObj-startDateObj).days+1)]):
-
-                        full_path = path+dates.strftime("%d-%m-%y")
-
-                        if (os.path.isdir(full_path)):
-
-                            full_path = full_path+"/"+meters
-
-                            dataEnd1 = pd.read_csv(full_path, header=None)
-                            dfSeriesEnd1 = pd.DataFrame(dataEnd1)
-                            dfEnd1 = dfSeriesEnd1[0]
-
-                            for i in range(1, len(dfEnd1)):
-                                oneHourDataEnd1 = [changeToFloat(
-                                    x) for x in dfEnd1[i].split()[1:]]
-
-                                for item in range(len(oneHourDataEnd1)):
-                                    if oneHourDataEnd1[item] != oneHourDataEnd1[item]:
-                                        oneHourDataEnd1[item] = 0
-
-                                    else:
-                                        oneHourDataEnd1[item] = 4 * \
-                                            oneHourDataEnd1[item]
-
-                                        oneHourDataEnd1[item] = round(
-                                            oneHourDataEnd1[item], 2)
-                                meter_database_data_far = meter_database_data_far + oneHourDataEnd1
-
-                    semvsscada_dict['Meter_Far_End_data'] = meter_database_data_far
-
-            except:
-                semvsscada_dict['Scada_Far_End_data'] = [
-                    0]*(len(date_range)*96)
-                semvsscada_dict['Meter_Far_End_data'] = [
-                    0]*(len(date_range)*96)
-                
-                if Feeder_Name not in error_names:
-                    error_names.append(Feeder_Name)
-                    xyz = semvsscada_dict.copy()
-
-                    try:
-                        xyz.pop('Meter_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Meter_To_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_To_End_data', None)
-                    except:
-                        pass
-                    Global_error_list.append(xyz)
-
+                meter_database_data_far = meter_data_dict.get(Meter_Far_End, [0] * (len(date_range) * 96))
+                if not meter_database_data_far:
+                    meter_database_data_far = [0] * (len(date_range) * 96)
+                    add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
+                semvsscada_dict['Meter_Far_End_data'] = meter_database_data_far
+            except Exception:
+                semvsscada_dict['Scada_Far_End_data'] = [0] * (len(date_range) * 96)
+                semvsscada_dict['Meter_Far_End_data'] = [0] * (len(date_range) * 96)
+                add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
         else:
-            semvsscada_dict['Scada_Far_End_data'] = [0]*(len(date_range)*96)
-            semvsscada_dict['Meter_Far_End_data'] = [0]*(len(date_range)*96)
+            semvsscada_dict['Scada_Far_End_data'] = [0] * (len(date_range) * 96)
+            semvsscada_dict['Meter_Far_End_data'] = [0] * (len(date_range) * 96)
+            add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
 
-            if Feeder_Name not in error_names:
-                error_names.append(Feeder_Name)
-                xyz = semvsscada_dict.copy()
+        # Calculate errors and statistics
+        to_end_percent, far_end_percent = [], []
+        actual_to_end_percent, actual_far_end_percent = [], []
+        sem_percent, scada_percent = [], []
+        count_sem = count_scada = 0
 
-                try:
-                    xyz.pop('Meter_Far_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Meter_To_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Scada_Far_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Scada_To_End_data', None)
-                except:
-                    pass
-                Global_error_list.append(xyz)
+        scada_to = semvsscada_dict["Scada_To_End_data"]
+        meter_to = semvsscada_dict["Meter_To_End_data"]
+        scada_far = semvsscada_dict["Scada_Far_End_data"]
+        meter_far = semvsscada_dict["Meter_Far_End_data"]
 
-        to_end_percent = []
-        far_end_percent = []
-
-        sem_percent = []
-        scada_percent = []
-
-        actual_to_end_percent = []
-        actual_far_end_percent = []
-
-        if (semvsscada_dict["Scada_To_End_data"] == "No Data Found" or semvsscada_dict["Meter_To_End_data"] == "No Data Found"):
-
-            to_end_percent.append(0)
-            actual_to_end_percent.append(0)
-
-            if Feeder_Name not in error_names:
-                error_names.append(Feeder_Name)
-                xyz = semvsscada_dict.copy()
-
-                try:
-                    xyz.pop('Meter_Far_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Meter_To_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Scada_Far_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Scada_To_End_data', None)
-                except:
-                    pass
-                Global_error_list.append(xyz)
-
+        if scada_to == "No Data Found" or meter_to == "No Data Found":
+            to_end_percent = [0]
+            actual_to_end_percent = [0]
+            add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
         else:
-
-            count = 0
-            total_val = 0
-            nonzero_val= 0
-
-            # scada_max_value = round(
-            #     (abs(max(semvsscada_dict["Scada_To_End_data"])))*0.3, 2)
-
-            for item in semvsscada_dict["Scada_To_End_data"]:
+            count = total_val = nonzero_val = 0
+            for item in scada_to:
                 item = abs(item)
-
                 if item != 0:
-                    total_val = item+total_val
+                    total_val += item
                     count += 1
-                    nonzero_val= item
+                    nonzero_val = item
+            avg_scada_to = round(abs(total_val / count), 2) if count else 0
+            if (count and avg_scada_to == nonzero_val) or (count == 0):
+                add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
 
-            if count != 0:
-                avg_scada_to = round(abs(total_val/count), 2)
-                
-                if avg_scada_to== nonzero_val:
-                    if Feeder_Name not in error_names:
-                        error_names.append(Feeder_Name)
-                        xyz = semvsscada_dict.copy()
-
-                        try:
-                            xyz.pop('Meter_Far_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Meter_To_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Scada_Far_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Scada_To_End_data', None)
-                        except:
-                            pass
-                        Global_error_list.append(xyz)
-
-            else:
-                avg_scada_to = 0
-                if Feeder_Name not in error_names:
-                    error_names.append(Feeder_Name)
-                    xyz = semvsscada_dict.copy()
-
-                    try:
-                        xyz.pop('Meter_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Meter_To_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_To_End_data', None)
-                    except:
-                        pass
-                    Global_error_list.append(xyz)
-
-            count1 = 0
-            total_val1 = 0
-            nonzero_val1= 0
-
-            # scada_max_value = round(
-            #     (abs(max(semvsscada_dict["Scada_To_End_data"])))*0.3, 2)
-
-            for item in semvsscada_dict["Meter_To_End_data"]:
+            count1 = total_val1 = nonzero_val1 = 0
+            for item in meter_to:
                 item = abs(item)
-
                 if item != 0:
-                    total_val1 = item+total_val1
+                    total_val1 += item
                     count1 += 1
-                    nonzero_val1= item
+                    nonzero_val1 = item
+            avg_meter_to = round(abs(total_val1 / count1), 2) if count1 else 0
+            if (count1 and avg_meter_to == nonzero_val1) or (count1 == 0):
+                add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
 
-            if count1 != 0:
-                avg_meter_to = round(abs(total_val1/count1), 2)
-                
-                if avg_meter_to== nonzero_val1:
-                    if Feeder_Name not in error_names:
-                        error_names.append(Feeder_Name)
-                        xyz = semvsscada_dict.copy()
-
-                        try:
-                            xyz.pop('Meter_Far_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Meter_To_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Scada_Far_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Scada_To_End_data', None)
-                        except:
-                            pass
-                        Global_error_list.append(xyz)
-
-            else:
-                avg_meter_to = 0
-                if Feeder_Name not in error_names:
-                    error_names.append(Feeder_Name)
-                    xyz = semvsscada_dict.copy()
-
-                    try:
-                        xyz.pop('Meter_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Meter_To_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_To_End_data', None)
-                    except:
-                        pass
-                    Global_error_list.append(xyz)
-
-            count_scada=0
-            count_sem=0
-            
             for i in range(len(allDateTime)):
-
-                x1 = semvsscada_dict["Meter_To_End_data"][i]
-                y1 = semvsscada_dict["Scada_To_End_data"][i]
-                x2 = semvsscada_dict["Meter_Far_End_data"][i]
-                y2 = semvsscada_dict["Scada_Far_End_data"][i]
-
-                if y1!=0:
-                    scada_block_wise= abs(round(
-                                    (100*(abs(y1) - abs(y2))/max(abs(y1),abs(y2))), 2))
-                    count_scada+=1
+                x1 = meter_to[i]
+                y1 = scada_to[i]
+                x2 = meter_far[i]
+                y2 = scada_far[i]
+                if y1 != 0:
+                    scada_block_wise = abs(round((100 * (abs(y1) - abs(y2)) / max(abs(y1), abs(y2))), 2))
+                    count_scada += 1
                 else:
-                    scada_block_wise= 0
-
-                if x1!=0:
-                    sem_block_wise= abs(round(
-                                    (100*(abs(x1) - abs(x2))/max(abs(x1),abs(x2))), 2))
-                    count_sem+=1
+                    scada_block_wise = 0
+                if x1 != 0:
+                    sem_block_wise = abs(round((100 * (abs(x1) - abs(x2)) / max(abs(x1), abs(x2))), 2))
+                    count_sem += 1
                 else:
-                    sem_block_wise= 0
-                
+                    sem_block_wise = 0
                 scada_percent.append(scada_block_wise)
                 sem_percent.append(sem_block_wise)
-
+                # To End percent
                 if i != 0:
-
-                    if Feeder_Name == "BH_DRAWAL" or Feeder_Name == "DV_DRAWAL" or Feeder_Name == "GR_DRAWAL" or Feeder_Name == "WB_DRAWAL" or Feeder_Name == "JH_DRAWAL" or Feeder_Name == "SI_DRAWAL":
-                        semvsscada_dict["Meter_To_End_data"][i] = abs(
-                            semvsscada_dict["Meter_To_End_data"][i])
-
-                    if semvsscada_dict["Meter_To_End_data"][i] == semvsscada_dict["Meter_To_End_data"][i-1] or semvsscada_dict["Scada_To_End_data"][i] == semvsscada_dict["Scada_To_End_data"][i-1]:
+                    if Feeder_Name in ["BH_DRAWAL", "DV_DRAWAL", "GR_DRAWAL", "WB_DRAWAL", "JH_DRAWAL", "SI_DRAWAL"]:
+                        meter_to[i] = abs(meter_to[i])
+                    if meter_to[i] == meter_to[i - 1] or scada_to[i] == scada_to[i - 1]:
                         to_end_percent.append(0)
                         actual_to_end_percent.append(0)
-
-                    elif semvsscada_dict["Meter_To_End_data"][i] == 0 or semvsscada_dict["Scada_To_End_data"][i] == 0:
+                    elif meter_to[i] == 0 or scada_to[i] == 0:
                         to_end_percent.append(0)
                         actual_to_end_percent.append(0)
-
-                    # elif (abs(semvsscada_dict["Scada_To_End_data"][i]) <= scada_max_value):
-                    #     to_end_percent.append(0)
-
-                    elif (abs(semvsscada_dict["Meter_To_End_data"][i]) <= abs(offset)) or (abs(semvsscada_dict["Scada_To_End_data"][i]) <= abs(offset)):
+                    elif (abs(meter_to[i]) <= abs(offset)) or (abs(scada_to[i]) <= abs(offset)):
                         to_end_percent.append(0)
                         actual_to_end_percent.append(0)
-
                     else:
-
-                        x = abs(semvsscada_dict["Meter_To_End_data"][i])
-                        y = abs(semvsscada_dict["Scada_To_End_data"][i])
-
-                        if abs(x-y) <= 5:
+                        x = abs(meter_to[i])
+                        y = abs(scada_to[i])
+                        if abs(x - y) <= 5:
                             to_percent = 0
                             actual_to_end_percent.append(0)
                         else:
-                            to_percent = abs(round(
-                                (100*(x - y)/x), 2))
+                            to_percent = abs(round((100 * (x - y) / x), 2))
                             actual_to_end_percent.append(to_percent)
                             if to_percent >= 20:
                                 to_percent = 0
-
                         to_end_percent.append(to_percent)
-
                 else:
-
-                    if Feeder_Name == "BH_DRAWAL" or Feeder_Name == "DV_DRAWAL" or Feeder_Name == "GR_DRAWAL" or Feeder_Name == "WB_DRAWAL" or Feeder_Name == "JH_DRAWAL" or Feeder_Name == "SI_DRAWAL":
-                        semvsscada_dict["Meter_To_End_data"][i] = abs(
-                            semvsscada_dict["Meter_To_End_data"][i])
-
-                    elif semvsscada_dict["Meter_To_End_data"][i] == 0 or semvsscada_dict["Scada_To_End_data"][i] == 0:
+                    if Feeder_Name in ["BH_DRAWAL", "DV_DRAWAL", "GR_DRAWAL", "WB_DRAWAL", "JH_DRAWAL", "SI_DRAWAL"]:
+                        meter_to[i] = abs(meter_to[i])
+                    if meter_to[i] == 0 or scada_to[i] == 0:
                         to_end_percent.append(0)
                         actual_to_end_percent.append(0)
-
-                    elif (abs(semvsscada_dict["Meter_To_End_data"][i]) <= abs(offset)) or (abs(semvsscada_dict["Scada_To_End_data"][i]) <= abs(offset)):
+                    elif (abs(meter_to[i]) <= abs(offset)) or (abs(scada_to[i]) <= abs(offset)):
                         to_end_percent.append(0)
                         actual_to_end_percent.append(0)
-
                     else:
-
-                        x = abs(semvsscada_dict["Meter_To_End_data"][i])
-                        y = abs(semvsscada_dict["Scada_To_End_data"][i])
-
-                        if abs(x-y) <= 5:
+                        x = abs(meter_to[i])
+                        y = abs(scada_to[i])
+                        if abs(x - y) <= 5:
                             to_percent = 0
                             actual_to_end_percent.append(0)
                         else:
-                            to_percent = abs(round(
-                                (100*(x - y)/x), 2))
+                            to_percent = abs(round((100 * (x - y) / x), 2))
                             actual_to_end_percent.append(to_percent)
                             if to_percent >= 20:
                                 to_percent = 0
-
                         to_end_percent.append(to_percent)
 
-        if (semvsscada_dict["Scada_Far_End_data"] == "No Data Found" or semvsscada_dict["Meter_Far_End_data"] == "No Data Found"):
-            
-            far_end_percent.append(0)
-            actual_far_end_percent.append(0)
-
+        # Far End error calculation
+        if scada_far == "No Data Found" or meter_far == "No Data Found":
+            far_end_percent = [0]
+            actual_far_end_percent = [0]
         else:
-
-            count = 0
-            total_val = 0
-            nonzero_val= 0
-
-            # scada_max_value = round(
-            #     (abs(max(semvsscada_dict["Scada_To_End_data"])))*0.3, 2)
-
-            for item in semvsscada_dict["Scada_Far_End_data"]:
+            count = total_val = nonzero_val = 0
+            for item in scada_far:
                 item = abs(item)
-
                 if item != 0:
-                    total_val = item+total_val
+                    total_val += item
                     count += 1
-                    nonzero_val= item
+                    nonzero_val = item
+            avg_scada_far = round(abs(total_val / count), 2) if count else 0
+            if (count and avg_scada_far == nonzero_val) or (count == 0):
+                add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
 
-            if count != 0:
-                avg_scada_to = round(abs(total_val/count), 2)
-                
-                if avg_scada_to== nonzero_val:
-                    if Feeder_Name not in error_names:
-                        error_names.append(Feeder_Name)
-                        xyz = semvsscada_dict.copy()
-
-                        try:
-                            xyz.pop('Meter_Far_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Meter_To_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Scada_Far_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Scada_To_End_data', None)
-                        except:
-                            pass
-                        Global_error_list.append(xyz)
-
-            else:
-                avg_scada_to = 0
-                if Feeder_Name not in error_names:
-                    error_names.append(Feeder_Name)
-                    xyz = semvsscada_dict.copy()
-
-                    try:
-                        xyz.pop('Meter_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Meter_To_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_To_End_data', None)
-                    except:
-                        pass
-                    Global_error_list.append(xyz)
-
-            count1 = 0
-            total_val1 = 0
-            nonzero_val1= 0
-
-            # scada_max_value = round(
-            #     (abs(max(semvsscada_dict["Scada_To_End_data"])))*0.3, 2)
-
-            for item in semvsscada_dict["Meter_Far_End_data"]:
+            count1 = total_val1 = nonzero_val1 = 0
+            for item in meter_far:
                 item = abs(item)
-
                 if item != 0:
-                    total_val1 = item+total_val1
+                    total_val1 += item
                     count1 += 1
-                    nonzero_val1= item
+                    nonzero_val1 = item
+            avg_meter_far = round(abs(total_val1 / count1), 2) if count1 else 0
+            if (count1 and avg_meter_far == nonzero_val1) or (count1 == 0):
+                add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
 
-            if count1 != 0:
-                avg_meter_to = round(abs(total_val1/count1), 2)
-                
-                if avg_meter_to== nonzero_val1:
-                    if Feeder_Name not in error_names:
-                        error_names.append(Feeder_Name)
-                        xyz = semvsscada_dict.copy()
-
-                        try:
-                            xyz.pop('Meter_Far_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Meter_To_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Scada_Far_End_data', None)
-                        except:
-                            pass
-                        try:
-                            xyz.pop('Scada_To_End_data', None)
-                        except:
-                            pass
-                        Global_error_list.append(xyz)
-
-            else:
-                avg_meter_to = 0
-                if Feeder_Name not in error_names:
-                    error_names.append(Feeder_Name)
-                    xyz = semvsscada_dict.copy()
-
-                    try:
-                        xyz.pop('Meter_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Meter_To_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_Far_End_data', None)
-                    except:
-                        pass
-                    try:
-                        xyz.pop('Scada_To_End_data', None)
-                    except:
-                        pass
-                    Global_error_list.append(xyz)
-                    
-
-            for i in range(len(semvsscada_dict["Scada_Far_End_data"])):
-
+            for i in range(len(scada_far)):
                 if i != 0:
-
-                    if Feeder_Name == "BH_DRAWAL" or Feeder_Name == "DV_DRAWAL" or Feeder_Name == "GR_DRAWAL" or Feeder_Name == "WB_DRAWAL" or Feeder_Name == "JH_DRAWAL" or Feeder_Name == "SI_DRAWAL":
-                        semvsscada_dict["Meter_Far_End_data"][i] = abs(
-                            semvsscada_dict["Meter_Far_End_data"][i])
-
-                    if semvsscada_dict["Meter_Far_End_data"][i] == semvsscada_dict["Meter_Far_End_data"][i-1] or semvsscada_dict["Scada_Far_End_data"][i] == semvsscada_dict["Scada_Far_End_data"][i-1]:
+                    if Feeder_Name in ["BH_DRAWAL", "DV_DRAWAL", "GR_DRAWAL", "WB_DRAWAL", "JH_DRAWAL", "SI_DRAWAL"]:
+                        meter_far[i] = abs(meter_far[i])
+                    if meter_far[i] == meter_far[i - 1] or scada_far[i] == scada_far[i - 1]:
                         far_end_percent.append(0)
                         actual_far_end_percent.append(0)
-
-                    elif semvsscada_dict["Meter_Far_End_data"][i] == 0 or semvsscada_dict["Scada_Far_End_data"][i] == 0:
+                    elif meter_far[i] == 0 or scada_far[i] == 0:
                         far_end_percent.append(0)
                         actual_far_end_percent.append(0)
-
-                    # elif (abs(semvsscada_dict["Scada_Far_End_data"][i]) <= scada_max_value):
-                    #     far_end_percent.append(0)
-
-                    elif (abs(semvsscada_dict["Meter_Far_End_data"][i]) <= abs(offset)) or (abs(semvsscada_dict["Scada_Far_End_data"][i]) <= abs(offset)):
+                    elif (abs(meter_far[i]) <= abs(offset)) or (abs(scada_far[i]) <= abs(offset)):
                         far_end_percent.append(0)
                         actual_far_end_percent.append(0)
-
                     else:
-
-                        x = abs(semvsscada_dict["Meter_Far_End_data"][i])
-                        y = abs(semvsscada_dict["Scada_Far_End_data"][i])
-
-                        if abs(x-y) <= 5:
+                        x = abs(meter_far[i])
+                        y = abs(scada_far[i])
+                        if abs(x - y) <= 5:
                             far_percent = 0
                             actual_far_end_percent.append(0)
                         else:
-                            far_percent = abs(round((100*(x - y)/x), 2))
+                            far_percent = abs(round((100 * (x - y) / x), 2))
                             actual_far_end_percent.append(far_percent)
                             if far_percent > 20:
                                 far_percent = 0
-
                         far_end_percent.append(far_percent)
-
                 else:
-
-                    if Feeder_Name == "BH_DRAWAL" or Feeder_Name == "DV_DRAWAL" or Feeder_Name == "GR_DRAWAL" or Feeder_Name == "WB_DRAWAL" or Feeder_Name == "JH_DRAWAL" or Feeder_Name == "SI_DRAWAL":
-                        semvsscada_dict["Meter_Far_End_data"][i] = abs(
-                            semvsscada_dict["Meter_Far_End_data"][i])
-
-                    if semvsscada_dict["Meter_Far_End_data"][i] == 0 or semvsscada_dict["Scada_Far_End_data"][i] == 0:
+                    if Feeder_Name in ["BH_DRAWAL", "DV_DRAWAL", "GR_DRAWAL", "WB_DRAWAL", "JH_DRAWAL", "SI_DRAWAL"]:
+                        meter_far[i] = abs(meter_far[i])
+                    if meter_far[i] == 0 or scada_far[i] == 0:
                         far_end_percent.append(0)
                         actual_far_end_percent.append(0)
-
-                    elif (abs(semvsscada_dict["Meter_Far_End_data"][i]) <= abs(offset)) or (abs(semvsscada_dict["Scada_Far_End_data"][i]) <= abs(offset)):
+                    elif (abs(meter_far[i]) <= abs(offset)) or (abs(scada_far[i]) <= abs(offset)):
                         far_end_percent.append(0)
                         actual_far_end_percent.append(0)
-
                     else:
-
-                        x = abs(semvsscada_dict["Meter_Far_End_data"][i])
-                        y = abs(semvsscada_dict["Scada_Far_End_data"][i])
-
-                        if abs(x-y) <= 5:
+                        x = abs(meter_far[i])
+                        y = abs(scada_far[i])
+                        if abs(x - y) <= 5:
                             far_percent = 0
                             actual_far_end_percent.append(0)
                         else:
-                            far_percent = abs(round((100*(x - y)/x), 2))
+                            far_percent = abs(round((100 * (x - y) / x), 2))
                             actual_far_end_percent.append(far_percent)
                             if far_percent > 20:
                                 far_percent = 0
-
                         far_end_percent.append(far_percent)
 
+        # Statistics
         to_max, to_min, to_avg = my_max_min_function(to_end_percent)
         far_max, far_min, far_avg = my_max_min_function(far_end_percent)
+        actual_to_avg = sum(actual_to_end_percent) / len(actual_to_end_percent) if actual_to_end_percent else 0
+        actual_far_avg = sum(actual_far_end_percent) / len(actual_far_end_percent) if actual_far_end_percent else 0
+        sem_avg = min(round(sum(sem_percent) / count_sem, 2), 100) if count_sem else 0
+        scada_avg = min(round(sum(scada_percent) / count_scada, 2), 100) if count_scada else 0
 
-        # to_avg = sum(to_end_percent)/len(to_end_percent)
-        # far_avg = sum(far_end_percent)/len(far_end_percent)
+        if actual_to_avg >= 20 or actual_far_avg >= 20:
+            add_error(Feeder_Name, semvsscada_dict, error_names, Global_error_list, error_lock)
 
-        actual_to_avg = sum(actual_to_end_percent)/len(actual_to_end_percent)
-        actual_far_avg = sum(actual_far_end_percent)/len(actual_far_end_percent)
+        semvsscada_dict.update({
+            'to_end_percent': actual_to_end_percent,
+            'far_end_percent': actual_far_end_percent,
+            'to_end_max_val': to_max[0],
+            'to_end_min_val': to_min[0],
+            'to_end_avg_val': min(round(actual_to_avg, 2), 100),
+            'far_end_max_val': far_max[0],
+            'far_end_min_val': far_min[0],
+            'far_end_avg_val': min(round(actual_far_avg, 2), 100),
+            'scada_error': scada_percent,
+            'sem_error': sem_percent,
+            'sem_avg': sem_avg,
+            'scada_avg': scada_avg
+        })
 
-        if count_sem!=0:
-            sem_avg= min(round(sum(sem_percent)/count_sem,2),100)
-        else:
-            sem_avg=0
-        
-        if count_scada!=0:
-            scada_avg= min(round(sum(scada_percent)/count_scada,2),100)
-        else:
-            scada_avg=0
+        # Constituent assignment
+        with append_lock:
+            if semvsscada_dict['to_end_avg_val'] > 3:
+                constituent_name = semvsscada_dict['Feeder_From']
+                if constituent_name in constituent_keys and [semvsscada_dict['Feeder_Name'], 0] not in lookupDictionary[constituent_name]:
+                    lookupDictionary[constituent_name].append([semvsscada_dict['Feeder_Name'], 0])
+            if semvsscada_dict['far_end_avg_val'] > 3:
+                constituent_name = semvsscada_dict['To_Feeder']
+                if constituent_name in constituent_keys and [semvsscada_dict['Feeder_Name'], 1] not in lookupDictionary[constituent_name]:
+                    lookupDictionary[constituent_name].append([semvsscada_dict['Feeder_Name'], 1])
+            final_data_to_send1.append(semvsscada_dict)
 
-        if actual_to_avg>=20 or actual_far_avg>=20:
-            if Feeder_Name not in error_names:
-                error_names.append(Feeder_Name)
-                xyz = semvsscada_dict.copy()
+    # Use ThreadPoolExecutor for parallel processing of items
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        list(executor.map(process_item, keydata))
 
-                try:
-                    xyz.pop('Meter_Far_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Meter_To_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Scada_Far_End_data', None)
-                except:
-                    pass
-                try:
-                    xyz.pop('Scada_To_End_data', None)
-                except:
-                    pass
-                Global_error_list.append(xyz)
-
-
-        semvsscada_dict['to_end_percent'] = actual_to_end_percent
-        semvsscada_dict['far_end_percent'] = actual_far_end_percent
-        semvsscada_dict['to_end_max_val'] = to_max[0]
-        semvsscada_dict['to_end_min_val'] = to_min[0]
-        semvsscada_dict['to_end_avg_val'] = min(round(actual_to_avg, 2),100)
-        semvsscada_dict['far_end_max_val'] = far_max[0]
-        semvsscada_dict['far_end_min_val'] = far_min[0]
-        semvsscada_dict['far_end_avg_val'] = min(round(actual_far_avg, 2),100)
-        semvsscada_dict['scada_error'] = scada_percent
-        semvsscada_dict['sem_error'] = sem_percent
-        semvsscada_dict['sem_avg'] = sem_avg
-        semvsscada_dict['scada_avg'] = scada_avg
-        final_data_to_send1.append(semvsscada_dict)
-
-        lookupDictionary = {
-            'BH': BH,
-            'DV': DV,
-            'GR': GR,
-            'JH': JH,
-            'MIS_CALC_TO': MIS_CALC_TO,
-            'NTPC_ER_1': NTPC_ER_1,
-            'NTPC_ODISHA': NTPC_ODISHA,
-            'PG_ER1': PG_ER1,
-            'PG_ER2': PG_ER2,
-            'WB': WB,
-            'SI': SI,
-            'PG_odisha_project': PG_odisha_project
-        }
-
-        if semvsscada_dict['to_end_avg_val'] > 3:
-            constituent_name = semvsscada_dict['Feeder_From']
-            constituent_list = lookupDictionary.get(constituent_name)
-            if (constituent_list is not None) and (constituent_name not in lookupDictionary[constituent_name]):
-                lookupDictionary[constituent_name].append(
-                    [semvsscada_dict['Feeder_Name'],0])
-
-        if semvsscada_dict['far_end_avg_val'] > 3:
-            constituent_name = semvsscada_dict['To_Feeder']
-            constituent_list = lookupDictionary.get(constituent_name)
-            if (constituent_list is not None) and (constituent_name not in lookupDictionary[constituent_name]):
-                lookupDictionary[constituent_name].append(
-                    [semvsscada_dict['Feeder_Name'],1])
-
-    final_data_to_send['BH'] = BH
-    final_data_to_send['DV'] = DV
-    final_data_to_send['GR'] = GR
-
-    final_data_to_send['JH'] = JH
-    final_data_to_send['MIS_CALC_TO'] = MIS_CALC_TO
-    final_data_to_send['NTPC_ER_1'] = NTPC_ER_1
-
-    final_data_to_send['NTPC_ODISHA'] = NTPC_ODISHA
-    final_data_to_send['PG_ER1'] = PG_ER1
-    final_data_to_send['PG_ER2'] = PG_ER2
-
-    final_data_to_send['WB'] = WB
-    final_data_to_send['SI'] = SI
-    final_data_to_send['PG_odisha_project'] = PG_odisha_project
+    for key in constituent_keys:
+        final_data_to_send[key] = lookupDictionary[key]
 
     Global_letter_data = final_data_to_send.copy()
     Global_data = final_data_to_send1
-
     final_data_to_send['Data'] = final_data_to_send1
-    return ([final_data_to_send,error_names])
-    
+    return [final_data_to_send, error_names]
 
 def gen_error_excel():
 
@@ -1290,26 +618,22 @@ def gen_error_excel():
     else:
         return jsonify("No Data to Download")
 
-
 def gen_all_letters():
+    import concurrent.futures
 
     global Global_letter_data
-
     data_list = Global_letter_data
 
     dt = date.today()
     cur_dt = dt.strftime('%d-%m-%Y')
-    start_dt = datetime.strptime(
-        data_list['Date_Time'][0], '%d-%m-%Y %H:%M:%S')
-    end_dt = datetime.strptime(data_list['Date_Time'][-1], '%d-%m-%Y %H:%M:%S')
-    month_folder = start_dt.strftime('%b %y')
-    year_folder = start_dt.strftime('%Y')
+    start_dt_obj = datetime.strptime(data_list['Date_Time'][0], '%d-%m-%Y %H:%M:%S')
+    end_dt_obj = datetime.strptime(data_list['Date_Time'][-1], '%d-%m-%Y %H:%M:%S')
+    month_folder = start_dt_obj.strftime('%b %y')
+    year_folder = start_dt_obj.strftime('%Y')
+    start_dt = start_dt_obj.strftime('%d-%m-%Y')
+    end_dt = end_dt_obj.strftime('%d-%m-%Y')
 
-    start_dt = (datetime.strptime(
-        data_list['Date_Time'][0], '%d-%m-%Y %H:%M:%S')).strftime('%d-%m-%Y')
-    end_dt = (datetime.strptime(
-        data_list['Date_Time'][-1], '%d-%m-%Y %H:%M:%S')).strftime('%d-%m-%Y')
-
+    # Extract constituent lists
     si_list = data_list['SI']
     gr_list = data_list["GR"]
     dvc_list = data_list["DV"]
@@ -1320,303 +644,149 @@ def gen_all_letters():
     pg_er1_list = data_list["PG_ER1"]
     jh_list = data_list["JH"]
 
+    # Fetch mapping_table only once
     cursor = mapping_table.find(
         filter={}, projection={'_id': 0, 'Feeder_Name': 1, 'Feeder_Hindi': 1})
-
     keydata = list(cursor)
+    feeders = {row['Feeder_Name']: row['Feeder_Hindi'] for row in keydata}
 
-    feeders = {}
+    # Prepare constituent dictionary
+    const_dict = {
+        'si': [si_list, {}], 'gr': [gr_list, {}], 'dvc': [dvc_list, {}], 'bh': [bh_list, {}], 'wb': [wb_list, {}],
+        'pg_er3': [pg_er3_list, {}], 'pg_er2': [pg_er2_list, {}], 'pg_er1': [pg_er1_list, {}], 'jh': [jh_list, {}]
+    }
 
-    for row in keydata:
-        x = row['Feeder_Name']
-        y = row['Feeder_Hindi']
-        feeders[x] = y
+    # Helper for line reversal
+    def reverse_line(line, feeders):
+        if "_ICT" not in line:
+            line_var = line.split('_')
+            if len(line_var) > 2:
+                x = line_var[1]
+                line_var[1], line_var[2] = line_var[2], x
+                rev_line = '_'.join(line_var)
+                line_var_h = feeders[line].split('_')
+                x_h = line_var_h[1]
+                line_var_h[1], line_var_h[2] = line_var_h[2], x_h
+                rev_line_h = '_'.join(line_var_h)
+                return rev_line, rev_line_h
+        return None, None
 
-    const_dict = {'si': [si_list, {}], 'gr': [gr_list, {}], 'dvc': [dvc_list, {}], 'bh': [bh_list, {}], 'wb': [
-        wb_list, {}], 'pg_er3': [pg_er3_list, {}], 'pg_er2': [pg_er2_list, {}], 'pg_er1': [pg_er1_list, {}], 'jh': [jh_list, {}]}
-
-    for constituent in const_dict.keys():
-        const_lst = const_dict[constituent][0]
-
+    # Build Hindi/English line mapping in parallel
+    def process_constituent(constituent):
+        const_lst, mapping = const_dict[constituent]
         for lines in const_lst:
-
-            if lines[-1]== 0:
-                lines= lines[0]
-                const_dict[constituent][1][lines] = feeders[lines]
-                    
+            if lines[-1] == 0:
+                line = lines[0]
+                mapping[line] = feeders.get(line, "")
             else:
-
-                lines= lines[0]
-                if "_ICT" not in lines:
-                
-                    line_var = lines.split('_')
-                    x = line_var[1]
-                    line_var[1], line_var[2] = line_var[2], x
-                    rev_line = '_'.join(line_var)
-
-                    line_var_h = feeders[lines].split('_')
-                    x_h = line_var_h[1]
-                    line_var_h[1], line_var_h[2] = line_var_h[2], x_h
-                    rev_line_h = '_'.join(line_var_h)
-
-                    const_dict[constituent][1][rev_line] = rev_line_h
-
+                line = lines[0]
+                if "_ICT" not in line:
+                    rev_line, rev_line_h = reverse_line(line, feeders)
+                    if rev_line and rev_line_h:
+                        mapping[rev_line] = rev_line_h
                 else:
                     continue
-                    lines2= lines
-                    lines = lines[:-8]
-                    
-                    line_var = lines.split('_')
-                    if len(line_var)==1:
-                        print(lines2)
-                    x = line_var[1]
-                    line_var[1], line_var[2] = line_var[2], x
-                    rev_line = '_'.join(line_var)
+        return constituent, dict(sorted(mapping.items(), reverse=True))
 
-                    line_var_h = feeders[lines].split('_')
-                    x_h = line_var_h[1]
-                    line_var_h[1], line_var_h[2] = line_var_h[2], x_h
-                    rev_line_h = '_'.join(line_var_h)
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        results = list(executor.map(process_constituent, const_dict.keys()))
+    for k, v in results:
+        const_dict[k][1] = v
 
-                    const_dict[constituent][1][rev_line] = rev_line_h
-        # for lines in const_lst:
-        #     if lines[-7:] == "(other)" and "_ICT" not in lines:
-        #         lines = lines[:-8]
-        #         line_var = lines.split('_')
-        #         x = line_var[1]
-        #         line_var[1], line_var[2] = line_var[2], x
-        #         rev_line = '_'.join(line_var)
+    # Prepare output folders
+    base_path = f'output/letter doc/{year_folder}/{month_folder}/{start_dt}_to_{end_dt}'
+    os.makedirs(base_path, exist_ok=True)
 
-        #         line_var_h = feeders[lines].split('_')
-        #         x_h = line_var_h[1]
-        #         line_var_h[1], line_var_h[2] = line_var_h[2], x_h
-        #         rev_line_h = '_'.join(line_var_h)
+    # Letter generation tasks
+    letter_tasks = [
+        # (condition, template_path, context_keys, output_filename)
+        (len(const_dict['pg_er1'][0]) > 0, "letters doc templates/Letter to  Powergrid_ER1.docx", 'pg_er1', 'Letter to Powergrid_ER1'),
+        (len(const_dict['pg_er2'][0]) > 0, "letters doc templates/Letter to  Powergrid_ER2.docx", 'pg_er2', 'Letter to Powergrid_ER2'),
+        (len(const_dict['pg_er3'][0]) > 0, "letters doc templates/Letter to Powergrid_Odisha_Project.docx", 'pg_er3', 'Letter to Powergrid_Odisha_Project'),
+        (len(const_dict['bh'][0]) > 0, "letters doc templates/Letter to BSPTCL.docx", 'bh', 'Letter to BSPTCL'),
+        (len(const_dict['wb'][0]) > 0, "letters doc templates/Letter to WBSETCL.docx", 'wb', 'Letter to WBSETCL'),
+        (len(const_dict['jh'][0]) > 0, "letters doc templates/Letter to JUSNL.docx", 'jh', 'Letter to JUSNL'),
+        (len(const_dict['dvc'][0]) > 0, "letters doc templates/Letter to DVC.docx", 'dvc', 'Letter to DVC'),
+        (len(const_dict['gr'][0]) > 0, "letters doc templates/Letter to OPTCL.docx", 'gr', 'Letter to OPTCL'),
+        (len(const_dict['si'][0]) > 0, "letters doc templates/Letter to Sikkim.docx", 'si', 'Letter to Sikkim'),
+    ]
 
-        #         const_dict[constituent][1][rev_line] = rev_line_h
-        #     else:
-        #         const_dict[constituent][1][lines] = feeders[lines]
+    def render_letter(args):
+        cond, template_path, key, out_name = args
+        if not cond:
+            return
+        doc = DocxTemplate(template_path)
+        context = {
+            "cur_date": cur_dt,
+            "start_date": start_dt,
+            "end_date": end_dt,
+            "Lines_english": list(const_dict[key][1].keys()),
+            "Lines_hindi": list(const_dict[key][1].values())
+        }
+        doc.render(context)
+        doc.save(f'{base_path}/{out_name} {start_dt}_to_{end_dt}.docx')
 
-    for k in const_dict.keys():
-        const_dict[k][1] = dict(sorted(const_dict[k][1].items(), reverse=True))
-
-    try:
-        os.makedirs('output/letter doc/{}'.format(year_folder))
-    except FileExistsError:
-        pass        # directory already exists
-
-    try:
-        os.makedirs('output/letter doc/{}/{}'.format(year_folder, month_folder))
-    except FileExistsError:
-        pass        # directory already exists
-
-    try:
-        try:
-            os.rmdir('output/letter doc/{}/{}/{}_to_{}'.format(year_folder,
-                                                               month_folder, start_dt, end_dt))
-
-        except:
-
-            pass
-
-        os.makedirs('output/letter doc/{}/{}/{}_to_{}'.format(year_folder,
-                    month_folder, start_dt, end_dt))
-
-    except FileExistsError:
-        pass
-
-    if len(const_dict['pg_er1'][0]) > 0:
-        doc_er1 = DocxTemplate(
-            "letters doc templates/Letter to  Powergrid_ER1.docx")
-        context_er1 = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
-            const_dict['pg_er1'][1].keys()), "Lines_hindi": list(const_dict['pg_er1'][1].values())}
-        doc_er1.render(context_er1)
-        doc_er1.save('output/letter doc/{}/{}/{}_to_{}/Letter to Powergrid_ER1 {}_to_{}.docx'.format(
-            year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
-
-    if len(const_dict['pg_er2'][0]) > 0:
-        doc_er2 = DocxTemplate(
-            "letters doc templates/Letter to  Powergrid_ER2.docx")
-        context_er2 = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
-            const_dict['pg_er2'][1].keys()), "Lines_hindi": list(const_dict['pg_er2'][1].values())}
-        doc_er2.render(context_er2)
-        doc_er2.save('output/letter doc/{}/{}/{}_to_{}/Letter to Powergrid_ER2 {}_to_{}.docx'.format(
-            year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
-
-    if len(const_dict['pg_er3'][0]) > 0:
-        doc_er3 = DocxTemplate(
-            "letters doc templates/Letter to Powergrid_Odisha_Project.docx")
-        context_er3 = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
-            const_dict['pg_er3'][1].keys()), "Lines_hindi": list(const_dict['pg_er3'][1].values())}
-        doc_er3.render(context_er3)
-        doc_er3.save('output/letter doc/{}/{}/{}_to_{}/Letter to Powergrid_Odisha_Project {}_to_{}.docx'.format(
-            year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
-
-    if len(const_dict['bh'][0]) > 0:
-
-        doc_bh = DocxTemplate("letters doc templates/Letter to BSPTCL.docx")
-        context_bh = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
-            const_dict['bh'][1].keys()), "Lines_hindi": list(const_dict['bh'][1].values())}
-        doc_bh.render(context_bh)
-        doc_bh.save('output/letter doc/{}/{}/{}_to_{}/Letter to BSPTCL {}_to_{}.docx'.format(
-            year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
-
-    if len(const_dict['wb'][0]) > 0:
-        doc_wb = DocxTemplate("letters doc templates/Letter to WBSETCL.docx")
-        context_wb = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
-            const_dict['wb'][1].keys()), "Lines_hindi": list(const_dict['wb'][1].values())}
-        doc_wb.render(context_wb)
-        doc_wb.save('output/letter doc/{}/{}/{}_to_{}/Letter to WBSETCL {}_to_{}.docx'.format(
-            year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
-
-    if len(const_dict['jh'][0]) > 0:
-        doc_jh = DocxTemplate("letters doc templates/Letter to JUSNL.docx")
-        context_jh = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
-            const_dict['jh'][1].keys()), "Lines_hindi": list(const_dict['jh'][1].values())}
-        doc_jh.render(context_jh)
-        doc_jh.save('output/letter doc/{}/{}/{}_to_{}/Letter to JUSNL {}_to_{}.docx'.format(
-            year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
-
-    if len(const_dict['dvc'][0]) > 0:
-        doc_dvc = DocxTemplate("letters doc templates/Letter to DVC.docx")
-        context_dvc = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
-            const_dict['dvc'][1].keys()), "Lines_hindi": list(const_dict['dvc'][1].values())}
-        doc_dvc.render(context_dvc)
-        doc_dvc.save('output/letter doc/{}/{}/{}_to_{}/Letter to DVC {}_to_{}.docx'.format(
-            year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
-
-    if len(const_dict['gr'][0]) > 0:
-        doc_gr = DocxTemplate("letters doc templates/Letter to OPTCL.docx")
-        context_gr = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
-            const_dict['gr'][1].keys()), "Lines_hindi": list(const_dict['gr'][1].values())}
-        doc_gr.render(context_gr)
-        doc_gr.save('output/letter doc/{}/{}/{}_to_{}/Letter to OPTCL {}_to_{}.docx'.format(
-            year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
-
-    if len(const_dict['si'][0]) > 0:
-        doc_si = DocxTemplate("letters doc templates/Letter to Sikkim.docx")
-        context_si = {"cur_date": cur_dt, "start_date": start_dt, "end_date": end_dt, "Lines_english": list(
-            const_dict['si'][1].keys()), "Lines_hindi": list(const_dict['si'][1].values())}
-        doc_si.render(context_si)
-        doc_si.save('output/letter doc/{}/{}/{}_to_{}/Letter to Sikkim {}_to_{}.docx'.format(
-            year_folder, month_folder, start_dt, end_dt, start_dt, end_dt))
+    # Parallel letter rendering
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        executor.map(render_letter, letter_tasks)
 
     # print('Letter generation', 'All Letters have generated at output/letter doc/')
 
+    def gen_excel():
+        global Global_data
+        global Global_date
 
-def gen_excel():
+        # Prepare the base DataFrame for Date_Time
+        if isinstance(Global_date, pd.DataFrame):
+            base_df = Global_date.copy()
+        elif isinstance(Global_date, dict) and 'Date_Time' in Global_date:
+            base_df = pd.DataFrame({'Date_Time': Global_date['Date_Time']})
+        elif isinstance(Global_date, list):
+            base_df = pd.DataFrame({'Date_Time': Global_date})
+        else:
+            return jsonify({"error": "Invalid Global_date format"})
 
-    global Global_data
+        # Pre-allocate dicts for all columns to avoid repeated concat
+        meter_to_dict = {'Date_Time': base_df['Date_Time']}
+        meter_far_dict = {'Date_Time': base_df['Date_Time']}
+        scada_to_dict = {'Date_Time': base_df['Date_Time']}
+        scada_far_dict = {'Date_Time': base_df['Date_Time']}
+        svs_to_dict = {'Date_Time': base_df['Date_Time']}
+        svs_far_dict = {'Date_Time': base_df['Date_Time']}
 
-    global Global_date
+        # Use list comprehension for speed
+        for item in Global_data:
+            fname = item['Feeder_Name']
+            meter_to_dict[fname] = item.get('Meter_To_End_data', [])
+            meter_far_dict[fname] = item.get('Meter_Far_End_data', [])
+            scada_to_dict[fname] = item.get('Scada_To_End_data', [])
+            scada_far_dict[fname] = item.get('Scada_Far_End_data', [])
+            svs_to_dict[fname] = item.get('to_end_percent', [])
+            svs_far_dict[fname] = item.get('far_end_percent', [])
 
-    meter_to = [Global_date]
+        # Convert dicts to DataFrames
+        meter_to = pd.DataFrame(meter_to_dict)
+        meter_far = pd.DataFrame(meter_far_dict)
+        scada_to = pd.DataFrame(scada_to_dict)
+        scada_far = pd.DataFrame(scada_far_dict)
+        svs_to = pd.DataFrame(svs_to_dict)
+        svs_far = pd.DataFrame(svs_far_dict)
 
-    meter_far = [Global_date]
+        path = "output/SVS.xlsx"
 
-    scada_to = [Global_date]
+        # Write all sheets in a single pass
+        with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
+            meter_to.to_excel(writer, sheet_name="SEM_To_End", index=False)
+            meter_far.to_excel(writer, sheet_name="SEM_Far_End", index=False)
+            scada_to.to_excel(writer, sheet_name="SCADA_To_End", index=False)
+            scada_far.to_excel(writer, sheet_name="SCADA_Far_End", index=False)
+            svs_to.to_excel(writer, sheet_name="SvS_To_End", index=False)
+            svs_far.to_excel(writer, sheet_name="SvS_Far_End", index=False)
 
-    scada_far = [Global_date]
-
-    svs_to = [Global_date]
-
-    svs_far = [Global_date]
-
-    for item in Global_data:
-
-        df1 = pd.DataFrame.from_dict(
-            {item['Feeder_Name']: item['Meter_To_End_data']})
-
-        meter_to.append(df1)
-
-        df2 = pd.DataFrame.from_dict(
-            {item['Feeder_Name']: item['Meter_Far_End_data']})
-
-        meter_far.append(df2)
-
-        df3 = pd.DataFrame.from_dict(
-            {item['Feeder_Name']: item['Scada_To_End_data']})
-
-        scada_to.append(df3)
-
-        df4 = pd.DataFrame.from_dict(
-            {item['Feeder_Name']: item['Scada_Far_End_data']})
-
-        scada_far.append(df4)
-
-        df5 = pd.DataFrame.from_dict(
-            {item['Feeder_Name']: item['to_end_percent']})
-
-        svs_to.append(df5)
-
-        df6 = pd.DataFrame.from_dict(
-            {item['Feeder_Name']: item['far_end_percent']})
-
-        svs_far.append(df6)
-
-    meter_to = pd.concat(meter_to, axis=1, join="inner")
-    meter_far = pd.concat(meter_far, axis=1, join="inner")
-    scada_to = pd.concat(scada_to, axis=1, join="inner")
-    scada_far = pd.concat(scada_far, axis=1, join="inner")
-    svs_to = pd.concat(svs_to, axis=1, join="inner")
-    svs_far = pd.concat(svs_far, axis=1, join="inner")
-
-    path = "output/SVS.xlsx"
-
-    # if len(meter_to) > 0:
-
-    #     merged = pd.concat(meter_to, axis=1, join="inner")
-    #     merged.to_excel(
-    #         path, index=None, sheet_name="SEM_To_End")
-
-    # if len(meter_far) > 0:
-
-    #     merged = pd.concat(meter_far, axis=1, join="inner")
-    #     merged.to_excel(
-    #         path, index=None, sheet_name="SEM_Far_End")
-
-    # if len(scada_to) > 0:
-
-    #     merged = pd.concat(scada_to, axis=1, join="inner")
-    #     merged.to_excel(
-    #         path, index=None, sheet_name="SCADA_To_End")
-
-    # if len(scada_far) > 0:
-
-    #     merged = pd.concat(scada_far, axis=1, join="inner")
-    #     merged.to_excel(
-    #         path, index=None, sheet_name="SCADA_Far_End")
-
-    # if len(svs_to) > 0:
-
-    #     merged = pd.concat(svs_to, axis=1, join="inner")
-    #     merged.to_excel(
-    #         path, index=None, sheet_name="SvS_To_End")
-
-    # if len(svs_far) > 0:
-
-    #     merged = pd.concat(svs_far, axis=1, join="inner")
-    #     merged.to_excel(
-    #         path, index=None, sheet_name="SvS_Far_End")
-
-    with pd.ExcelWriter(path) as writer:
-
-        # use to_excel function and specify the sheet_name and index
-        # to store the dataframe in specified sheet
-        meter_to.to_excel(writer, sheet_name="SEM_To_End", index=False)
-        meter_far.to_excel(writer, sheet_name="SEM_Far_End", index=False)
-        scada_to.to_excel(writer, sheet_name="SCADA_To_End", index=False)
-        scada_far.to_excel(writer, sheet_name="SCADA_Far_End", index=False)
-        svs_to.to_excel(writer, sheet_name="SvS_To_End", index=False)
-        svs_far.to_excel(writer, sheet_name="SvS_Far_End", index=False)
-
-    if os.path.exists(path):
-        with open(path, "rb") as excel:
-            data = excel.read()
-
-        response = Response(
-            data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-
-    return send_file(path, as_attachment=True, download_name='SVS')
+        if os.path.exists(path):
+            return send_file(path, as_attachment=True, download_name='SVS')
+        else:
+            return jsonify({"error": "Excel file not created"})
 
 
 # Define the plot_feeder function outside of gen_graph_pdf
