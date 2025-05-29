@@ -1,69 +1,41 @@
-from cmath import nan
-from unicodedata import name
-# from matplotlib import projections
-# from matplotlib.pyplot import table
-import pandas as pd
 import os
-import glob
-from pymongo import MongoClient, ASCENDING, DESCENDING, errors
+import uuid
+import threading
 from datetime import date, timedelta, datetime, timezone
-from flask import Flask, jsonify, request, redirect, Response, send_file
+from collections import defaultdict
+
+import pandas as pd
+from pymongo import MongoClient, ASCENDING
+from flask import Flask, jsonify, Response, send_file
 from flask_cors import CORS
-import json
-import math
-import shutil
-from flask_cors import CORS, cross_origin
-from flask import send_from_directory
-from pandas.tseries.offsets import MonthEnd
-from werkzeug .utils import secure_filename
-from zipfile import ZipFile
-import numpy as np
 from docxtpl import DocxTemplate
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib.backends.backend_pdf import PdfPages
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from PyPDF2 import PdfMerger
-import uuid
 from matplotlib import pyplot as plt
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from flask import jsonify, send_file
-from collections import defaultdict
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 
 app = Flask(__name__)
-
 CORS(app)
 
+# Global variables
 Global_letter_data = ""
-
 Global_data = ""
-
 Global_date = ""
-
 Global_error_list = []
 
 def my_max_min_function(somelist):
-
+    if not somelist:
+        return [0], [0], 0
     max_value = max(somelist)
     min_value = min(somelist)
-    avg_value = 0 if len(somelist) == 0 else sum(somelist)/len(somelist)
-
+    avg_value = sum(somelist) / len(somelist)
     max_index = [i for i, val in enumerate(somelist) if val == max_value]
     min_index = [i for i, val in enumerate(somelist) if val == min_value]
-
-    avg_value = avg_value
-    max_value = max_value
-    min_value = min_value
-
     max_index.insert(0, max_value)
     min_index.insert(0, min_value)
-
     return max_index, min_index, avg_value
-
 
 def datetime_range(start, end, delta):
     end = end + timedelta(days=1)
@@ -72,15 +44,9 @@ def datetime_range(start, end, delta):
         yield current
         current += delta
 
-    return current
-
-
 def divide_chunks(l, n):
-
-    # looping till length l
     for i in range(0, len(l), n):
         yield l[i:i + n]
-
 
 def isFloat(value):
     try:
@@ -89,47 +55,33 @@ def isFloat(value):
     except ValueError:
         return False
 
-
 def isNaN(num):
     return num != num
 
-
 def changeToFloat(x):
-    if (isFloat(x)):
+    try:
         return float(x)
-    else:
+    except Exception:
         return None
-    
+
 def remove_duplicate_objects(arr):
-  seen = set()
-  new_arr = []
-  for obj in arr:
-    # Create a hashable representation of the object
-    key = tuple(sorted(obj.items())) 
-    if key not in seen:
-      seen.add(key)
-      new_arr.append(obj)
-  return new_arr
-
-
-# /////////////////////////////////////////////////////////bashboard////////////////////////////////
-
+    seen = set()
+    new_arr = []
+    for obj in arr:
+        key = tuple(sorted(obj.items()))
+        if key not in seen:
+            seen.add(key)
+            new_arr.append(obj)
+    return new_arr
 
 def ScadaCollection():
-
     CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
     client = MongoClient(CONNECTION_STRING)
     db = client['SemVsScada']
-    User_Input_Table = db['Scada_Data']
-    meter_table = db['meter_name_code']
-    mapping_table = db['mapping_table']
-    return User_Input_Table, meter_table, mapping_table
-
+    return db['Scada_Data'], db['meter_name_code'], db['mapping_table']
 
 Scada_database, meter_table, mapping_table = ScadaCollection()
 
-
-# /////////////////////////////////////////////SEM vs SCADA///////////////////////////////////////////////////
 def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
     import concurrent.futures
 
@@ -142,7 +94,6 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
         return [start_dt + timedelta(days=x) for x in range((end_dt - start_dt).days + 1)]
 
     def fetch_scada_data(code, date_range, db):
-        # Batch fetch all dates for a code in one query
         filter = {
             'Date': {'$gte': datetime(date_range[0].year, date_range[0].month, date_range[0].day, 0, 0, 0, tzinfo=timezone.utc),
                      '$lte': datetime(date_range[-1].year, date_range[-1].month, date_range[-1].day, 0, 0, 0, tzinfo=timezone.utc)},
@@ -161,7 +112,6 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
         return data
 
     def fetch_meter_data(meter_id, date_range, db):
-        # Batch fetch all dates for a meter in one query per year
         data = []
         years = sorted(set(it.year for it in date_range))
         date_map = {}
@@ -246,7 +196,6 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
     date_range = get_date_range(startDate, endDate)
 
     # Pre-fetch all SCADA and Meter data for all unique keys in parallel
-    # Build sets of all keys to fetch
     scada_keys = set()
     meter_keys = set()
     for item in keydata:
@@ -261,9 +210,9 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
 
     # Parallel fetch for SCADA
     scada_data_dict = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=16) as executor:
         future_to_key = {executor.submit(fetch_scada_data, key, date_range, db): key for key in scada_keys}
-        for future in concurrent.futures.as_completed(future_to_key):
+        for future in as_completed(future_to_key):
             key = future_to_key[future]
             try:
                 scada_data_dict[key] = future.result()
@@ -273,18 +222,18 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
     # Parallel fetch for Meter
     meter_data_dict = {}
     if folder == "no":
-        with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        with ThreadPoolExecutor(max_workers=16) as executor:
             future_to_key = {executor.submit(fetch_meter_data, key, date_range, db): key for key in meter_keys}
-            for future in concurrent.futures.as_completed(future_to_key):
+            for future in as_completed(future_to_key):
                 key = future_to_key[future]
                 try:
                     meter_data_dict[key] = future.result()
                 except Exception:
                     meter_data_dict[key] = [0] * (len(date_range) * 96)
     else:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        with ThreadPoolExecutor(max_workers=16) as executor:
             future_to_key = {executor.submit(fetch_meter_data_from_file, key, date_range): key for key in meter_keys}
-            for future in concurrent.futures.as_completed(future_to_key):
+            for future in as_completed(future_to_key):
                 key = future_to_key[future]
                 try:
                     meter_data_dict[key] = future.result()
@@ -573,8 +522,7 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
                     lookupDictionary[constituent_name].append([semvsscada_dict['Feeder_Name'], 1])
             final_data_to_send1.append(semvsscada_dict)
 
-    # Use ThreadPoolExecutor for parallel processing of items
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=16) as executor:
         list(executor.map(process_item, keydata))
 
     for key in constituent_keys:
@@ -586,35 +534,20 @@ def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
     return [final_data_to_send, error_names]
 
 def gen_error_excel():
-
     global Global_error_list
-    name_list= Global_error_list
-
+    name_list = remove_duplicate_objects(Global_error_list)
     try:
         os.remove('Excel_Files/ErrorNames.xlsx')
     except:
         pass
-
-    name_list= remove_duplicate_objects(name_list)
-
-    # print(pd.DataFrame(name_list))
     if len(name_list) > 0:
         merged = pd.DataFrame(name_list)
-        merged.to_excel(
-            "Excel_Files/ErrorNames.xlsx", index=None)
-
+        merged.to_excel("Excel_Files/ErrorNames.xlsx", index=None)
         path = "Excel_Files/ErrorNames.xlsx"
-
         if os.path.exists(path):
-            with open(path, "rb") as excel:
-                data = excel.read()
-
-            response = Response(
-                data, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            return send_file('Excel_Files/ErrorNames.xlsx', as_attachment=True, download_name='ErrorNames.xlsx')
+            return send_file(path, as_attachment=True, download_name='ErrorNames.xlsx')
         else:
             return Response('Some error occured!')
-
     else:
         return jsonify("No Data to Download")
 
@@ -644,19 +577,15 @@ def gen_all_letters():
     pg_er1_list = data_list["PG_ER1"]
     jh_list = data_list["JH"]
 
-    # Fetch mapping_table only once
-    cursor = mapping_table.find(
-        filter={}, projection={'_id': 0, 'Feeder_Name': 1, 'Feeder_Hindi': 1})
+    cursor = mapping_table.find(filter={}, projection={'_id': 0, 'Feeder_Name': 1, 'Feeder_Hindi': 1})
     keydata = list(cursor)
     feeders = {row['Feeder_Name']: row['Feeder_Hindi'] for row in keydata}
 
-    # Prepare constituent dictionary
     const_dict = {
         'si': [si_list, {}], 'gr': [gr_list, {}], 'dvc': [dvc_list, {}], 'bh': [bh_list, {}], 'wb': [wb_list, {}],
         'pg_er3': [pg_er3_list, {}], 'pg_er2': [pg_er2_list, {}], 'pg_er1': [pg_er1_list, {}], 'jh': [jh_list, {}]
     }
 
-    # Helper for line reversal
     def reverse_line(line, feeders):
         if "_ICT" not in line:
             line_var = line.split('_')
@@ -671,7 +600,6 @@ def gen_all_letters():
                 return rev_line, rev_line_h
         return None, None
 
-    # Build Hindi/English line mapping in parallel
     def process_constituent(constituent):
         const_lst, mapping = const_dict[constituent]
         for lines in const_lst:
@@ -684,22 +612,17 @@ def gen_all_letters():
                     rev_line, rev_line_h = reverse_line(line, feeders)
                     if rev_line and rev_line_h:
                         mapping[rev_line] = rev_line_h
-                else:
-                    continue
         return constituent, dict(sorted(mapping.items(), reverse=True))
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor() as executor:
         results = list(executor.map(process_constituent, const_dict.keys()))
     for k, v in results:
         const_dict[k][1] = v
 
-    # Prepare output folders
     base_path = f'output/letter doc/{year_folder}/{month_folder}/{start_dt}_to_{end_dt}'
     os.makedirs(base_path, exist_ok=True)
 
-    # Letter generation tasks
     letter_tasks = [
-        # (condition, template_path, context_keys, output_filename)
         (len(const_dict['pg_er1'][0]) > 0, "letters doc templates/Letter to  Powergrid_ER1.docx", 'pg_er1', 'Letter to Powergrid_ER1'),
         (len(const_dict['pg_er2'][0]) > 0, "letters doc templates/Letter to  Powergrid_ER2.docx", 'pg_er2', 'Letter to Powergrid_ER2'),
         (len(const_dict['pg_er3'][0]) > 0, "letters doc templates/Letter to Powergrid_Odisha_Project.docx", 'pg_er3', 'Letter to Powergrid_Odisha_Project'),
@@ -726,72 +649,60 @@ def gen_all_letters():
         doc.render(context)
         doc.save(f'{base_path}/{out_name} {start_dt}_to_{end_dt}.docx')
 
-    # Parallel letter rendering
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor() as executor:
         executor.map(render_letter, letter_tasks)
 
-    # print('Letter generation', 'All Letters have generated at output/letter doc/')
+def gen_excel():
+    global Global_data
+    global Global_date
 
-    def gen_excel():
-        global Global_data
-        global Global_date
+    if isinstance(Global_date, pd.DataFrame):
+        base_df = Global_date.copy()
+    elif isinstance(Global_date, dict) and 'Date_Time' in Global_date:
+        base_df = pd.DataFrame({'Date_Time': Global_date['Date_Time']})
+    elif isinstance(Global_date, list):
+        base_df = pd.DataFrame({'Date_Time': Global_date})
+    else:
+        return jsonify({"error": "Invalid Global_date format"})
 
-        # Prepare the base DataFrame for Date_Time
-        if isinstance(Global_date, pd.DataFrame):
-            base_df = Global_date.copy()
-        elif isinstance(Global_date, dict) and 'Date_Time' in Global_date:
-            base_df = pd.DataFrame({'Date_Time': Global_date['Date_Time']})
-        elif isinstance(Global_date, list):
-            base_df = pd.DataFrame({'Date_Time': Global_date})
-        else:
-            return jsonify({"error": "Invalid Global_date format"})
+    meter_to_dict = {'Date_Time': base_df['Date_Time']}
+    meter_far_dict = {'Date_Time': base_df['Date_Time']}
+    scada_to_dict = {'Date_Time': base_df['Date_Time']}
+    scada_far_dict = {'Date_Time': base_df['Date_Time']}
+    svs_to_dict = {'Date_Time': base_df['Date_Time']}
+    svs_far_dict = {'Date_Time': base_df['Date_Time']}
 
-        # Pre-allocate dicts for all columns to avoid repeated concat
-        meter_to_dict = {'Date_Time': base_df['Date_Time']}
-        meter_far_dict = {'Date_Time': base_df['Date_Time']}
-        scada_to_dict = {'Date_Time': base_df['Date_Time']}
-        scada_far_dict = {'Date_Time': base_df['Date_Time']}
-        svs_to_dict = {'Date_Time': base_df['Date_Time']}
-        svs_far_dict = {'Date_Time': base_df['Date_Time']}
+    for item in Global_data:
+        fname = item['Feeder_Name']
+        meter_to_dict[fname] = item.get('Meter_To_End_data', [])
+        meter_far_dict[fname] = item.get('Meter_Far_End_data', [])
+        scada_to_dict[fname] = item.get('Scada_To_End_data', [])
+        scada_far_dict[fname] = item.get('Scada_Far_End_data', [])
+        svs_to_dict[fname] = item.get('to_end_percent', [])
+        svs_far_dict[fname] = item.get('far_end_percent', [])
 
-        # Use list comprehension for speed
-        for item in Global_data:
-            fname = item['Feeder_Name']
-            meter_to_dict[fname] = item.get('Meter_To_End_data', [])
-            meter_far_dict[fname] = item.get('Meter_Far_End_data', [])
-            scada_to_dict[fname] = item.get('Scada_To_End_data', [])
-            scada_far_dict[fname] = item.get('Scada_Far_End_data', [])
-            svs_to_dict[fname] = item.get('to_end_percent', [])
-            svs_far_dict[fname] = item.get('far_end_percent', [])
+    meter_to = pd.DataFrame(meter_to_dict)
+    meter_far = pd.DataFrame(meter_far_dict)
+    scada_to = pd.DataFrame(scada_to_dict)
+    scada_far = pd.DataFrame(scada_far_dict)
+    svs_to = pd.DataFrame(svs_to_dict)
+    svs_far = pd.DataFrame(svs_far_dict)
 
-        # Convert dicts to DataFrames
-        meter_to = pd.DataFrame(meter_to_dict)
-        meter_far = pd.DataFrame(meter_far_dict)
-        scada_to = pd.DataFrame(scada_to_dict)
-        scada_far = pd.DataFrame(scada_far_dict)
-        svs_to = pd.DataFrame(svs_to_dict)
-        svs_far = pd.DataFrame(svs_far_dict)
+    path = "output/SVS.xlsx"
+    with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
+        meter_to.to_excel(writer, sheet_name="SEM_To_End", index=False)
+        meter_far.to_excel(writer, sheet_name="SEM_Far_End", index=False)
+        scada_to.to_excel(writer, sheet_name="SCADA_To_End", index=False)
+        scada_far.to_excel(writer, sheet_name="SCADA_Far_End", index=False)
+        svs_to.to_excel(writer, sheet_name="SvS_To_End", index=False)
+        svs_far.to_excel(writer, sheet_name="SvS_Far_End", index=False)
 
-        path = "output/SVS.xlsx"
+    if os.path.exists(path):
+        return send_file(path, as_attachment=True, download_name='SVS')
+    else:
+        return jsonify({"error": "Excel file not created"})
 
-        # Write all sheets in a single pass
-        with pd.ExcelWriter(path, engine='xlsxwriter') as writer:
-            meter_to.to_excel(writer, sheet_name="SEM_To_End", index=False)
-            meter_far.to_excel(writer, sheet_name="SEM_Far_End", index=False)
-            scada_to.to_excel(writer, sheet_name="SCADA_To_End", index=False)
-            scada_far.to_excel(writer, sheet_name="SCADA_Far_End", index=False)
-            svs_to.to_excel(writer, sheet_name="SvS_To_End", index=False)
-            svs_far.to_excel(writer, sheet_name="SvS_Far_End", index=False)
-
-        if os.path.exists(path):
-            return send_file(path, as_attachment=True, download_name='SVS')
-        else:
-            return jsonify({"error": "Excel file not created"})
-
-
-# Define the plot_feeder function outside of gen_graph_pdf
 def plot_feeder(feeder, x_labels, index):
-
     feeder_name = feeder.get("Feeder_Name", f"Feeder_{index}")
     file_path = f"output/tmp/{uuid.uuid4().hex}_feeder_{index}.pdf"
 
@@ -813,33 +724,23 @@ def plot_feeder(feeder, x_labels, index):
     with PdfPages(file_path) as pdf:
         # Page 1 – To End
         fig1, (ax1, ax1_table) = plt.subplots(2, 1, figsize=(14, 6), gridspec_kw={'height_ratios': [2, 1]})
-
-        # Primary Y-axis
         safe_plot(ax1, x_labels, feeder.get("Meter_To_End_data", []), "Meter To End", '-', 1)
         safe_plot(ax1, x_labels, feeder.get("Scada_To_End_data", []), "Scada To End", '--', 1)
-
-        # Secondary Y-axis for % Error
         ax1b = ax1.twinx()
         safe_plot(ax1b, x_labels, feeder.get("to_end_percent", []), "To End % Error", '-.', 1, color='tab:red')
         ax1b.set_ylabel("% Error", fontsize=8, color='tab:red')
         ax1b.tick_params(axis='y', labelsize=6, colors='tab:red')
-
-        # X-axis ticks
         tick_interval = 10
         xticks = list(range(0, len(x_labels), tick_interval))
         ax1.set_xticks(xticks)
         ax1.set_xticklabels([x_labels[i] for i in xticks], rotation=60, fontsize=5)
-
         ax1.set_title(f"{feeder_name} – To End", fontsize=11, fontweight='bold')
         ax1.set_xlabel("Date/Time", fontsize=8)
         ax1.set_ylabel("Values", fontsize=8)
         ax1.grid(True, linestyle='--', alpha=0.6)
         ax1.legend(fontsize=7)
-
-        # Table below
         table_fields = {
             "Feeder Name": feeder.get("Feeder_Name", ""),
-            # "Feeder Hindi": feeder.get("Feeder_Hindi", ""),
             "Meter To End": feeder.get("Meter_To_End", ""),
             "Key To End": feeder.get("Key_To_End", ""),
             "To End Avg": feeder.get("to_end_avg_val", ""),
@@ -849,38 +750,27 @@ def plot_feeder(feeder, x_labels, index):
             "SEM Avg": feeder.get("sem_avg", "")
         }
         draw_table(ax1_table, table_fields, "To End Summary")
-
         fig1.tight_layout(pad=1.5)
         pdf.savefig(fig1, dpi=72)
         plt.close(fig1)
 
         # Page 2 – Far End
         fig2, (ax2, ax2_table) = plt.subplots(2, 1, figsize=(14, 6), gridspec_kw={'height_ratios': [2, 1]})
-
-        # Primary Y-axis
         safe_plot(ax2, x_labels, feeder.get("Meter_Far_End_data", []), "Meter Far End", '-', 1)
         safe_plot(ax2, x_labels, feeder.get("Scada_Far_End_data", []), "Scada Far End", '--', 1)
-
-        # Secondary Y-axis for % Error
         ax2b = ax2.twinx()
         safe_plot(ax2b, x_labels, feeder.get("far_end_percent", []), "Far End % Error", '-.', 1, color='tab:red')
         ax2b.set_ylabel("% Error", fontsize=8, color='tab:red')
         ax2b.tick_params(axis='y', labelsize=6, colors='tab:red')
-
-        # X-axis ticks
         ax2.set_xticks(xticks)
         ax2.set_xticklabels([x_labels[i] for i in xticks], rotation=60, fontsize=5)
-
         ax2.set_title(f"{feeder_name} – Far End", fontsize=11, fontweight='bold')
         ax2.set_xlabel("Date/Time", fontsize=8)
         ax2.set_ylabel("Values", fontsize=8)
         ax2.grid(True, linestyle='--', alpha=0.6)
         ax2.legend(fontsize=7)
-
-        # Table below
         table_fields_far = {
             "Feeder Name": feeder.get("Feeder_Name", ""),
-            # "Feeder Hindi": feeder.get("Feeder_Hindi", ""),
             "Meter Far End": feeder.get("Meter_Far_End", ""),
             "Key Far End": feeder.get("Key_Far_End", ""),
             "Far End Avg": feeder.get("far_end_avg_val", ""),
@@ -890,7 +780,6 @@ def plot_feeder(feeder, x_labels, index):
             "SEM Avg": feeder.get("sem_avg", "")
         }
         draw_table(ax2_table, table_fields_far, "Far End Summary")
-
         fig2.tight_layout(pad=1.5)
         pdf.savefig(fig2, dpi=72)
         plt.close(fig2)
@@ -901,7 +790,6 @@ def gen_graph_pdf():
     global Global_data
     global Global_date
 
-    # Extract x_labels
     if isinstance(Global_date, pd.DataFrame):
         x_labels = Global_date['Date_Time'].tolist()
     elif isinstance(Global_date, dict) and 'Date_Time' in Global_date:
@@ -923,7 +811,6 @@ def gen_graph_pdf():
     except PermissionError:
         return jsonify({"error": "Close 'SVS_Graphs.pdf' and try again."})
 
-    # Run in parallel
     feeder_paths = []
     with ProcessPoolExecutor(max_workers=12) as executor:
         futures = {
@@ -938,7 +825,6 @@ def gen_graph_pdf():
             except Exception as e:
                 print(f"Error processing feeder: {e}")
 
-    # Merge all into single PDF
     if not feeder_paths:
         return jsonify({"error": "No valid feeder data generated."})
 
@@ -949,7 +835,6 @@ def gen_graph_pdf():
     merger.write(output_pdf_path)
     merger.close()
 
-    # Cleanup
     for f in feeder_paths:
         try:
             if f and os.path.exists(f):

@@ -1,26 +1,17 @@
-from cmath import nan
-# from unicodedata import name
-# from matplotlib import projections
-# from matplotlib.pyplot import table
 import pandas as pd
 import os
-import glob
-from pymongo import MongoClient, ASCENDING, DESCENDING, errors
+from pymongo import MongoClient, errors
 from datetime import date, timedelta, datetime, timezone
-from flask import Flask, jsonify, request, redirect, Response, send_file
+from flask import Flask, jsonify, Response, send_file, request
 from flask_cors import CORS
 import json
-import math
-# from urllib.parse import urlparse
-# from urllib. parse import parse_qs
-from flask_cors import CORS, cross_origin
-from flask import send_from_directory
-from pandas.tseries.offsets import MonthEnd
-from werkzeug .utils import secure_filename
+
+from flask_cors import CORS
 from zipfile import ZipFile
 from svs_report import *
 import shutil
 from bson import json_util, ObjectId
+from flask import abort
 
 app = Flask(__name__)
 
@@ -1229,101 +1220,87 @@ def Scada_Delete():
 
     return jsonify(reply)
 
-
 @app.route('/Mapping_Table', methods=['GET', 'POST'])
 def Mapping_Table():
-
     CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
     client = MongoClient(CONNECTION_STRING)
     db = client['SemVsScada']
     mapping_table = db['mapping_table']
 
-    cursor = mapping_table.find()
-
-    cursor = json.loads(json_util.dumps(cursor))
-
+    # Only fetch non-deleted records directly from MongoDB
+    cursor = mapping_table.find({'Deleted': {'$ne': "Yes"}})
     cursor_list = list(cursor)
-
-    i = 0
-
-    for item in range(len(cursor_list)):
-        try:
-            if cursor_list[item+i]['Deleted'] == "Yes":
-
-                cursor_list.pop(item+i)
-                i -= 1
-        except:
-            pass
-
+    # Convert ObjectId and other BSON types to JSON serializable
+    cursor_list = json.loads(json_util.dumps(cursor_list))
     return jsonify(cursor_list)
-
 
 @app.route('/Mapping_Table_Update', methods=['GET', 'POST'])
 def Mapping_Table_Update():
-
     Data = request.json
-    person_id= request.args['by']
+    person_id = request.args.get('by')
+    if not Data or not person_id:
+        abort(400, "Missing data or person_id")
 
     CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
     client = MongoClient(CONNECTION_STRING)
     db = client['SemVsScada']
     mapping_table = db['mapping_table']
 
-    filter = {'_id': ObjectId(Data['_id']['$oid'])}
+    try:
+        filter = {'_id': ObjectId(Data['_id']['$oid'])}
+    except Exception:
+        abort(400, "Invalid ObjectId")
 
-    Data.pop("_id")
+    Data.pop("_id", None)
     Data['Edited_by'] = person_id
 
     newvalues = {"$set": Data}
 
     try:
-
-        cursor = mapping_table.update_one(filter, newvalues)
-        return_val = 'Updated'
-
+        result = mapping_table.update_one(filter, newvalues)
+        return_val = 'Updated' if result.modified_count > 0 else 'No Change'
     except errors.DuplicateKeyError:
-
         return_val = 'failed'
 
     return jsonify(return_val)
 
-
 @app.route('/Mapping_Table_Delete', methods=['GET', 'POST'])
 def Mapping_Table_Delete():
-
     Data = request.json
-    person_id= request.args['by']
+    person_id = request.args.get('by')
+    if not Data or not person_id:
+        abort(400, "Missing data or person_id")
 
     CONNECTION_STRING = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
     client = MongoClient(CONNECTION_STRING)
     db = client['SemVsScada']
     mapping_table = db['mapping_table']
 
-    filter = {'_id': ObjectId(Data['_id']['$oid'])}
+    try:
+        filter = {'_id': ObjectId(Data['_id']['$oid'])}
+    except Exception:
+        abort(400, "Invalid ObjectId")
 
-    Data.pop("_id")
+    Data.pop("_id", None)
     Data['Deleted'] = "Yes"
     Data['Deleted_by'] = person_id
 
     newvalues = {"$set": Data}
 
     try:
-
-        cursor = mapping_table.update_one(filter, newvalues)
-        return_val = 'Deleted'
-
-    except:
-
+        result = mapping_table.update_one(filter, newvalues)
+        return_val = 'Deleted' if result.modified_count > 0 else 'No Change'
+    except Exception:
         return_val = 'failed'
 
     return jsonify(return_val)
 
-
 @app.route('/Mapping_Table_Add', methods=['GET', 'POST'])
 def Mapping_Table_Add():
-
     Data = request.json
-    person_id= request.args['by']
+    person_id = request.args.get('by')
+    if not Data or not person_id:
+        abort(400, "Missing data or person_id")
 
     Data['Added_by'] = person_id
 
@@ -1333,17 +1310,14 @@ def Mapping_Table_Add():
     mapping_table = db['mapping_table']
 
     try:
-
         mapping_table.insert_one(Data)
         return_val = 'Inserted'
-
     except errors.DuplicateKeyError:
-
         return_val = 'duplicate'
 
     return jsonify(return_val)
 
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5003)
