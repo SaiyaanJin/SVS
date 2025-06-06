@@ -83,6 +83,7 @@ def ScadaCollection():
 Scada_database, meter_table, mapping_table = ScadaCollection()
 
 def svsreport(startDate, startDate_obj, endDate, time, folder, offset):
+    
     import concurrent.futures
 
     def clean_keydata(keydata):

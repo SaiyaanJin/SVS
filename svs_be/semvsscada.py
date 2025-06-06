@@ -12,6 +12,7 @@ from svs_report import *
 import shutil
 from bson import json_util, ObjectId
 from flask import abort
+from dashboard import *
 
 app = Flask(__name__)
 
@@ -125,7 +126,20 @@ def dashboard():
         'meter_folder_date': meter_folder_list
     }])
 
-# /////////////////////////////////////////////////////////bashboard////////////////////////////////
+
+@app.route('/dashboard_names', methods=['GET', 'POST'])
+def dashboard_names():
+
+    startDate = request.args['startDate']
+    endDate = request.args['endDate']
+    blocks = request.args['blocks']
+    error_percentage = request.args['error_percent']
+
+    response= names(startDate, endDate, blocks, error_percentage)
+
+    return jsonify(response)
+
+    # /////////////////////////////////////////////////////////bashboard////////////////////////////////
 
 
 def ScadaCollection():
