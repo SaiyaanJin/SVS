@@ -29,8 +29,6 @@ function Dashboard(params) {
 	const [blocked, setBlocked] = useState(false);
 	const [loading_show, setloading_show] = useState(false);
 
-	const [data_received, setdata_received] = useState();
-
 	const [chartData, setChartData] = useState({});
 	const [chartOptions, setChartOptions] = useState({});
 	const [dates, setDates] = useState(null);
@@ -137,76 +135,144 @@ function Dashboard(params) {
 
 	useEffect(() => {
 		if (dates && dates.length === 2 && dates[0] !== null && dates[1] !== null) {
-			console.log("Dates:", dates);
 			const [startDate, endDate] = dates;
-			axios
-				.post(
-					"/dashboard_names?startDate=" +
-						moment(startDate).format("YYYY-MM-DD") +
-						"&endDate=" +
-						moment(endDate).format("YYYY-MM-DD") +
-						"&blocks=" +
-						blocks +
-						"&error_percent=" +
-						error_percent,
-					{}
-				)
-				.then((response) => {
-					// Handle the response from the server
-
-					if (response.data) {
-						const documentStyle = getComputedStyle(document.documentElement);
-						const data = {
-							labels: [
-								"No. of Tie-Lines with Error",
-								"No. of Tie-Lines without Error",
-							],
-							datasets: [
-								{
-									data: [
-										response.data.total_count[0],
-										response.data.total_count[1] - response.data.total_count[0],
-									],
-									backgroundColor: [
-										documentStyle.getPropertyValue("--red-500"),
-										documentStyle.getPropertyValue("--green-500"),
-										// documentStyle.getPropertyValue("--green-500"),
-									],
-									hoverBackgroundColor: [
-										documentStyle.getPropertyValue("--red-400"),
-										documentStyle.getPropertyValue("--green-400"),
-										// documentStyle.getPropertyValue("--green-400"),
-									],
-								},
-							],
-						};
-						const options = {
-							plugins: {
-								legend: {
-									labels: {
-										usePointStyle: true,
-									},
-								},
-							},
-						};
-						setChartData(data);
-						setChartOptions(options);
-					}
-
-					const summary = Object.fromEntries(
-						Object.entries(response.data)
-							.filter(([k]) => k !== "total_count")
-							.map(([k, v]) => [
-								k,
-								[
-									v.length,
-									v.filter((i) => i[1] === 0).length,
-									v.filter((i) => i[1] === 1).length,
-								],
-							])
+			(async () => {
+				try {
+					const { data } = await axios.post(
+						`/dashboard_names?startDate=${moment(startDate).format(
+							"YYYY-MM-DD"
+						)}&endDate=${moment(endDate).format(
+							"YYYY-MM-DD"
+						)}&blocks=${blocks}&error_percent=${error_percent}`,
+						{}
 					);
 
+					if (!data) return;
+
 					const documentStyle = getComputedStyle(document.documentElement);
+
+					// Pie/Doughnut Chart Data
+					setChartData({
+						labels: [
+							"No. of Tie-Lines with Error",
+							"No. of Tie-Lines without Error",
+						],
+						datasets: [
+							{
+								data: [
+									data.total_count[0],
+									data.total_count[1] - data.total_count[0],
+								],
+								backgroundColor: [
+									documentStyle.getPropertyValue("--pink-500"),
+									documentStyle.getPropertyValue("--blue-500"),
+								],
+								hoverBackgroundColor: [
+									documentStyle.getPropertyValue("--pink-400"),
+									documentStyle.getPropertyValue("--blue-400"),
+								],
+							},
+						],
+					});
+					setChartOptions({
+						plugins: {
+							legend: { labels: { usePointStyle: true } },
+						},
+					});
+
+					// Prepare summary and name_object
+					const summary = {};
+					const name_object = {};
+					for (const [k, v] of Object.entries(data)) {
+						if (k === "total_count") continue;
+						summary[k] = [
+							v.length,
+							v.filter((i) => i[1] === 0).length,
+							v.filter((i) => i[1] === 1).length,
+						];
+						const map = {};
+						for (const [name, val] of v) {
+							map[name] = map[name] || new Set();
+							map[name].add(val);
+						}
+						name_object[k] = Object.entries(map).map(([name, set]) => {
+							const has0 = set.has(0),
+								has1 = set.has(1);
+							return `${name} ${
+								has0 && has1 ? "Both End" : has0 ? "To End" : "Far End"
+							}`;
+						});
+					}
+
+					// Chart labels and keys
+					const chartLabels = [
+						"BIHAR",
+						"DVC",
+						"ODISHA",
+						"JHARKHAND",
+						"SIKKIM",
+						"WEST-BENGAL",
+						"NTPC ER1",
+						"NTPC ODISHA",
+						"PG ER1",
+						"PG ER2",
+						"PG ODISHA PROJECT",
+						"MIS CALC TO",
+					];
+					const chartKeys = [
+						"BH",
+						"DV",
+						"GR",
+						"JH",
+						"SI",
+						"WB",
+						"NTPC_ER_1",
+						"NTPC_ODISHA",
+						"PG_ER1",
+						"PG_ER2",
+						"PG_odisha_project",
+						"MIS_CALC_TO",
+					];
+					const chartDivisors = [85, 32, 52, 35, 4, 52, 2, 0, 144, 76, 64, 41];
+
+					// Line/Bar Chart Data
+					setChartData1({
+						labels: chartLabels,
+						datasets: [
+							{
+								type: "line",
+								label: "% of Tie-Lines with Error",
+								borderColor: documentStyle.getPropertyValue("--green-500"),
+								borderWidth: 2,
+								fill: false,
+								tension: 0.4,
+								data: chartKeys.map((k, i) =>
+									chartDivisors[i]
+										? (
+												((summary[k]?.[0] || 0) / chartDivisors[i]) *
+												100
+										  ).toFixed(2)
+										: 0
+								),
+								yAxisID: "y1",
+							},
+							{
+								type: "bar",
+								label: "To-End Tie-Lines with Error",
+								backgroundColor: documentStyle.getPropertyValue("--pink-500"),
+								data: chartKeys.map((k) => summary[k]?.[1] || 0),
+								borderColor: "white",
+								borderWidth: 2,
+							},
+							{
+								type: "bar",
+								label: "Far End Tie-Lines with Error",
+								backgroundColor: documentStyle.getPropertyValue("--blue-500"),
+								data: chartKeys.map((k) => summary[k]?.[2] || 0),
+							},
+						],
+					});
+
 					const textColor = documentStyle.getPropertyValue("--text-color");
 					const textColorSecondary = documentStyle.getPropertyValue(
 						"--text-color-secondary"
@@ -214,165 +280,55 @@ function Dashboard(params) {
 					const surfaceBorder =
 						documentStyle.getPropertyValue("--surface-border");
 
-					// response.data.BH 85
-					// response.data.DV 32
-					// response.data.GR 52
-					// response.data.JH 35
-					// response.data.MIS_CALC_TO 41
-					// response.data.NTPC_ER_1 2
-					// response.data.NTPC_ODISHA 0
-					// response.data.PG_ER1 144
-					// response.data.PG_ER2 76
-					// response.data.PG_odisha_project 64
-					// response.data.SI 4
-					// response.data.WB 52
-
-					const data1 = {
-						labels: [
-							"BIHAR",
-							"DVC",
-							"ODISHA",
-							"JHARKHAND",
-							"SIKKIM",
-							"WEST-BENGAL",
-							"NTPC ER1",
-							"NTPC ODISHA",
-							"PG ER1",
-							"PG ER2",
-							"PG ODISHA PROJECT",
-							"MIS CALC TO",
-						],
-						datasets: [
-							{
-								type: "line",
-								label: "% of Tie-Lines with Error",
-								borderColor: documentStyle.getPropertyValue("--blue-500"),
-								borderWidth: 2,
-								fill: false,
-								tension: 0.4,
-								data: [
-									((summary.BH[0] / 85) * 100).toFixed(2),
-									((summary.DV[0] / 32) * 100).toFixed(2),
-									((summary.GR[0] / 52) * 100).toFixed(2),
-									((summary.JH[0] / 35) * 100).toFixed(2),
-									((summary.SI[0] / 4) * 100).toFixed(2),
-									((summary.WB[0] / 52) * 100).toFixed(2),
-									((summary.NTPC_ER_1[0] / 2) * 100).toFixed(2),
-									0,
-									((summary.PG_ER1[0] / 144) * 100).toFixed(2),
-									((summary.PG_ER2[0] / 76) * 100).toFixed(2),
-									((summary.PG_odisha_project[0] / 64) * 100).toFixed(2),
-									((summary.MIS_CALC_TO[0] / 41) * 100).toFixed(2),
-								],
-								yAxisID: "y1",
-							},
-							{
-								type: "bar",
-								label: "To-End Tie-Lines with Error",
-								backgroundColor: documentStyle.getPropertyValue("--green-500"),
-								data: [
-									summary.BH[1],
-									summary.DV[1],
-									summary.GR[1],
-									summary.JH[1],
-									summary.SI[1],
-									summary.WB[1],
-									summary.NTPC_ER_1[1],
-									summary.NTPC_ODISHA[1],
-									summary.PG_ER1[1],
-									summary.PG_ER2[1],
-									summary.PG_odisha_project[1],
-									summary.MIS_CALC_TO[1],
-								],
-								borderColor: "white",
-								borderWidth: 2,
-							},
-							{
-								type: "bar",
-								label: "Far End Tie-Lines with Error",
-								backgroundColor: documentStyle.getPropertyValue("--red-500"),
-								data: [
-									summary.BH[2],
-									summary.DV[2],
-									summary.GR[2],
-									summary.JH[2],
-									summary.SI[2],
-									summary.WB[2],
-									summary.NTPC_ER_1[2],
-									summary.NTPC_ODISHA[2],
-									summary.PG_ER1[2],
-									summary.PG_ER2[2],
-									summary.PG_odisha_project[2],
-									summary.MIS_CALC_TO[2],
-								],
-							},
-						],
-					};
-					const options1 = {
+					setChartOptions1({
 						maintainAspectRatio: false,
 						aspectRatio: 0.6,
 						plugins: {
-							legend: {
-								labels: {
-									color: textColor,
+							legend: { labels: { color: textColor } },
+							tooltip: {
+								enabled: true,
+								mode: "nearest",
+								intersect: false,
+								callbacks: {
+									label: (context) => {
+										const idx = chartLabels.indexOf(context.label);
+										const key = chartKeys[idx];
+										const display = chartLabels[idx];
+										const names = name_object[key] || [];
+										return [`${display}: ${context.parsed.y}`, ...names];
+									},
 								},
 							},
 						},
-
+						hover: { mode: "nearest", intersect: true },
 						scales: {
 							x: {
-								title: {
-									display: true,
-									text: "Constituents",
-								},
-								ticks: {
-									color: textColorSecondary,
-								},
-								grid: {
-									color: surfaceBorder,
-								},
+								title: { display: true, text: "Constituents" },
+								ticks: { color: textColorSecondary },
+								grid: { color: surfaceBorder },
 							},
 							y: {
-								title: {
-									display: true,
-									text: "No. of Tie-Lines with Error ",
-								},
+								title: { display: true, text: "No. of Tie-Lines with Error " },
 								type: "linear",
 								display: true,
 								position: "left",
-								ticks: {
-									color: textColorSecondary,
-								},
-								grid: {
-									color: surfaceBorder,
-								},
+								ticks: { color: textColorSecondary },
+								grid: { color: surfaceBorder },
 							},
 							y1: {
-								title: {
-									display: true,
-									text: "% of Tie-Lines with Error ",
-								},
+								title: { display: true, text: "% of Tie-Lines with Error " },
 								type: "linear",
 								display: true,
 								position: "right",
-								ticks: {
-									color: textColorSecondary,
-								},
-								grid: {
-									drawOnChartArea: true,
-									color: surfaceBorder,
-								},
+								ticks: { color: textColorSecondary },
+								grid: { drawOnChartArea: true, color: surfaceBorder },
 							},
 						},
-					};
-
-					setChartData1(data1);
-					setChartOptions1(options1);
-				})
-				.catch((error) => {
-					// Handle any errors
+					});
+				} catch (error) {
 					console.error(error);
-				});
+				}
+			})();
 		}
 	}, [dates, blocks, error_percent]);
 
@@ -407,7 +363,7 @@ function Dashboard(params) {
 					</div>
 				</Fieldset>
 			)}
-			<br />
+
 			<br />
 			{/* Welcome Banner */}
 			{!page_hide && (
@@ -520,7 +476,8 @@ function Dashboard(params) {
 								gap: 1.5rem;
 								margin-bottom: 2rem;
 								background: #fff;
-								padding: 1.5rem 1rem;
+								padding-left: 1.5rem;
+								padding-right: 1rem;
 								border-radius: 8px;
 								box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 							}
@@ -550,7 +507,7 @@ function Dashboard(params) {
 			</Divider>
 
 			{!page_hide && (
-				<div className="charts-section">
+				<div className="charts-section" style={{ marginTop: "-3rem" }}>
 					<div className="charts-row">
 						<div className="charts-controls">
 							<div className="charts-control">
@@ -608,14 +565,96 @@ function Dashboard(params) {
 									type="pie"
 									data={chartData}
 									options={chartOptions}
-									style={{ width: "32vh", height: "32vh" }}
+									style={{ width: "40vh", height: "35vh" }}
 									className="w-auto"
 								/>
 								<div className="chart-label">
-									Number of Tie-Lines with Error (Pie-Chart)
+									Number of Tie-Lines with Error (Pie-Chart) <br /> Total
+									Tie-Lines:373
 								</div>
 							</div>
-							{/* <div className="chart-container">
+
+							<div className="chart-container">
+								<Chart
+									type="line"
+									data={chartData1}
+									options={chartOptions1}
+									style={{ width: "100vh", height: "40vh" }}
+								/>
+								<div className="chart-label">
+									Tie-Lines Error Analysis (Bar & Line Chart)
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<Divider align="left" hidden={!page_hide}>
+						{/* <span
+							className="p-tag"
+							style={{ backgroundColor: "#000", fontSize: "large" }}
+						>
+							<Avatar
+								icon="pi pi-chart-pie"
+								style={{ backgroundColor: "#000", color: "#fff" }}
+								shape="square"
+							/>
+							Charts
+						</span> */}
+					</Divider>
+					{/* Repeated Charts Section */}
+					{/* <div className="charts-row">
+						<div className="charts-controls">
+							<div className="charts-control">
+								<label htmlFor="percent" className="font-bold block mb-2">
+									Error Percent:
+								</label>
+								<InputNumber
+									showButtons
+									step={1}
+									size={2}
+									inputId="percent"
+									value={error_percent}
+									onValueChange={(e) => seterror_percent(e.value)}
+									suffix=" %"
+									max={100}
+									min={0}
+								/>
+							</div>
+							<div className="charts-control">
+								<label htmlFor="blocks" className="font-bold block mb-2">
+									Number of Blocks:
+								</label>
+								<InputNumber
+									showButtons
+									step={1}
+									size={5}
+									inputId="blocks"
+									value={blocks}
+									onValueChange={(e) => setblocks(e.value)}
+									suffix=" Blocks"
+									min={0}
+									max={1000}
+								/>
+							</div>
+							<div className="charts-control">
+								<label htmlFor="daterange" className="font-bold block mb-2">
+									Date Range:
+								</label>
+								<Calendar
+									showIcon
+									value={dates}
+									onChange={(e) => setDates(e.value)}
+									selectionMode="range"
+									readOnlyInput
+									hideOnRangeSelection
+									dateFormat="dd-mm-yy"
+									placeholder="Select Date Range"
+									inputId="daterange"
+								/>
+							</div>
+						</div>
+						<div className="charts-visuals">
+							<div className="chart-container">
 								<Chart
 									type="doughnut"
 									data={chartData}
@@ -624,9 +663,11 @@ function Dashboard(params) {
 									className="w-auto"
 								/>
 								<div className="chart-label">
-									Error Distribution by Category
+									Number of Tie-Lines with Error (Pie-Chart) <br /> Total
+									Tie-Lines:373
 								</div>
-							</div> */}
+							</div>
+
 							<div className="chart-container">
 								<Chart
 									type="line"
@@ -639,7 +680,7 @@ function Dashboard(params) {
 								</div>
 							</div>
 						</div>
-					</div>
+					</div> */}
 					<style>
 						{`
 							.charts-section {
