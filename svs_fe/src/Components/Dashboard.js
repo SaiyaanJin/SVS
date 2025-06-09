@@ -154,8 +154,20 @@ function Dashboard(params) {
 					// Pie/Doughnut Chart Data
 					setChartData({
 						labels: [
-							"No. of Tie-Lines with Error",
-							"No. of Tie-Lines without Error",
+							"No. of Tie-Lines with Error:" +
+								data.total_count[0] +
+								" (" +
+								((data.total_count[0] / data.total_count[1]) * 100).toFixed(2) +
+								" %)",
+							"No. of Tie-Lines without Error:" +
+								(data.total_count[1] - data.total_count[0]) +
+								" (" +
+								(
+									((data.total_count[1] - data.total_count[0]) /
+										data.total_count[1]) *
+									100
+								).toFixed(2) +
+								" %)",
 						],
 						datasets: [
 							{
