@@ -32,7 +32,7 @@ import { SplitButton } from "primereact/splitbutton";
 function SemVsScada(params) {
 	const items = Array.from({ length: 14 }, (v, i) => i);
 	const toast = useRef();
-	var navigate = new useNavigate();
+	const navigate = useNavigate();
 	const dt = useRef(null);
 	const [offset, setoffset] = useState(20);
 	const [date_range, setdate_range] = useState();
@@ -167,75 +167,57 @@ function SemVsScada(params) {
 	};
 
 	useEffect(() => {
-		if (date_range && date_range[1]) {
-			// var date_range = [];
-			// if (start_date[1] === null) {
-			// 	date_range.push(moment(date[0]).format("DD-MM-YYYY"));
-			// 	date_range.push(moment(date[0]).format("DD-MM-YYYY"));
-			// } else {
-			// 	date_range.push(moment(date[0]).format("DD-MM-YYYY"));
-			// 	date_range.push(moment(date[1]).format("DD-MM-YYYY"));
-			// }
-
-			axios
-				.post(
-					"/meter_check?startDate=" +
-						moment(date_range[0]).format("YYYY-MM-DD") +
-						"&endDate=" +
-						moment(date_range[1]).format("YYYY-MM-DD"),
+		// Handle date range change and FeederFrom filter in a single effect
+		const fetchMeterCheck = async (start, end) => {
+			try {
+				const response = await axios.post(
+					`/meter_check?startDate=${start}&endDate=${end}`,
 					{}
-				)
-				.then((response) => {
-					if (response.data[0] === "Database") {
-						setfolder_files(false);
-					}
-
-					if (response.data[0] === "Folder") {
-						setfolder_files(true);
-					}
-
-					if (response.data[0] === "Some") {
-						setfolder_files(false);
-						alert("Meter Data for some dates not found:" + response.data[0]);
-					}
-
-					if (response.data[0] === "Nowhere") {
-						reject("Data not found");
-						if (
-							window.confirm(
-								"Data not found anywhere, Please Upload in Meter Data tab"
-							)
-						) {
-							navigate("/Sem_Data");
-						}
-					}
-				})
-				.catch((error) => {});
-
-			setEnd_Date(date_range[1]);
-			setStart_Date(date_range[0]);
-		}
-	}, [date_range]);
-	// console.log(folder_files);
-	useEffect(() => {
-		if (svs_report_copy) {
-			var temp_Original_Api_data = svs_report_copy;
-			if (FeederFrom === "All") {
-				setsvs_report(temp_Original_Api_data);
-			} else {
-				var temp_data = [];
-				for (var z = 0; z < temp_Original_Api_data.length; z++) {
+				);
+				const status = response.data[0];
+				if (status === "Database") setfolder_files(false);
+				else if (status === "Folder") setfolder_files(true);
+				else if (status === "Some") {
+					setfolder_files(false);
+					alert("Meter Data for some dates not found:" + status);
+				} else if (status === "Nowhere") {
+					reject("Data not found");
 					if (
-						temp_Original_Api_data[z]["Feeder_From"] === FeederFrom ||
-						temp_Original_Api_data[z]["To_Feeder"] === FeederFrom
+						window.confirm(
+							"Data not found anywhere, Please Upload in Meter Data tab"
+						)
 					) {
-						temp_data.push(temp_Original_Api_data[z]);
+						navigate("/Sem_Data");
 					}
 				}
+			} catch (err) {
+				// Optionally handle error
+			}
+		};
+
+		if (date_range && date_range[1]) {
+			const start = moment(date_range[0]).format("YYYY-MM-DD");
+			const end = moment(date_range[1]).format("YYYY-MM-DD");
+			setStart_Date(date_range[0]);
+			setEnd_Date(date_range[1]);
+			fetchMeterCheck(start, end);
+		}
+
+		// Filter svs_report_copy by FeederFrom
+		if (svs_report_copy) {
+			if (FeederFrom === "All") {
+				setsvs_report(svs_report_copy);
+			} else {
+				const temp_data = svs_report_copy.filter(
+					(item) =>
+						item["Feeder_From"] === FeederFrom ||
+						item["To_Feeder"] === FeederFrom
+				);
 				setsvs_report(temp_data);
 			}
 		}
-	}, [FeederFrom]);
+		// eslint-disable-next-line
+	}, [date_range, svs_report_copy, FeederFrom, navigate]);
 
 	const getSEMvsSCADAreport = () => {
 		if (start_date && end_date) {
@@ -350,10 +332,7 @@ function SemVsScada(params) {
 							/>
 						</span>
 					</div>
-					{/* <div className="field"></div> */}
-					{/* <div className="field"></div> */}
-					{/* <div className="field"></div> */}
-					{/* <div className="field"></div> */}
+
 					<div className="field">
 						<span className="p-input-icon-left">
 							<Button
@@ -382,94 +361,22 @@ function SemVsScada(params) {
 							model={file_buttons}
 							severity="info"
 						/>
-						{/* <a
-							href={
-								`${baseURL}/letters_zip?startDate=` +
-								moment(start_date).format("DD-MM-YYYY") +
-								"&endDate=" +
-								moment(end_date).format("DD-MM-YYYY")
-							}
-						>
-							<b style={{ fontSize: "medium", fontStyle: "revert-layer" }}>
-								Download Letters(.zip)
-							</b>
-							<Avatar
-								icon="pi pi-download"
-								style={{ backgroundColor: "red", color: "#ffffff" }}
-								shape="circle"
-							/>
-						</a>
-
-						<a
-							href={
-								`${baseURL}/GetSvSExcel?startDate=` +
-								moment(start_date).format("DD-MM-YYYY") +
-								"&endDate=" +
-								moment(end_date).format("DD-MM-YYYY")
-							}
-						>
-							<b style={{ fontSize: "medium", fontStyle: "revert-layer" }}>
-								Download all Data(.xlsx)
-							</b>
-							<Avatar
-								shape="circle"
-								icon="pi pi-file-excel"
-								style={{ backgroundColor: "green", color: "#ffffff" }}
-							/>
-						</a>
-
-						<a
-							href={
-								`${baseURL}/GetErrorExcel?startDate=` +
-								moment(start_date).format("DD-MM-YYYY") +
-								"&endDate=" +
-								moment(end_date).format("DD-MM-YYYY")
-							}
-						>
-							<b style={{ fontSize: "medium", fontStyle: "revert-layer" }}>
-								Error List
-							</b>
-							<Avatar
-								icon="pi pi-ban"
-								style={{ backgroundColor: "black", color: "#ffffff" }}
-								shape="circle"
-							/>
-						</a>
-						<a
-							href={
-								`${baseURL}/graph_pdf?startDate=` +
-								moment(start_date).format("DD-MM-YYYY") +
-								"&endDate=" +
-								moment(end_date).format("DD-MM-YYYY")
-							}
-						>
-							<b style={{ fontSize: "medium", fontStyle: "revert-layer" }}>
-								PDF Plots
-							</b>
-							<Avatar
-								icon="pi-file-pdf"
-								style={{ backgroundColor: "red", color: "#ffffff" }}
-								shape="circle"
-							/>
-						</a> */}
 					</div>
 				</div>
 			</div>
 		</>
 	);
 
-	// const randomNum = () => Math.floor(Math.random() * (235 - 52 + 1) + 52);
-
-	// const randomRGB = () => `rgb(${randomNum()}, ${randomNum()}, ${randomNum()})`;
-
 	const rendergraphfarend = (e) => {
 		if (selectedrows.length === 1) {
+			var to_end_scada = "";
+			var to_end_meter = "";
 			if (invert) {
-				var to_end_scada = selectedrows[0].Scada_To_End_data.map((a) => a * -1);
-				var to_end_meter = selectedrows[0].Meter_To_End_data.map((a) => a * -1);
+				to_end_scada = selectedrows[0].Scada_To_End_data.map((a) => a * -1);
+				to_end_meter = selectedrows[0].Meter_To_End_data.map((a) => a * -1);
 			} else {
-				var to_end_scada = selectedrows[0].Scada_To_End_data;
-				var to_end_meter = selectedrows[0].Meter_To_End_data;
+				to_end_scada = selectedrows[0].Scada_To_End_data;
+				to_end_meter = selectedrows[0].Meter_To_End_data;
 			}
 
 			return (
@@ -716,7 +623,7 @@ function SemVsScada(params) {
 
 							var all_datasets = [];
 
-							selectedrows.map((f) => {
+							selectedrows.forEach((f) => {
 								var far_name1 = f.Feeder_Name.split("_");
 
 								if (far_name1.length === 4) {
@@ -1034,12 +941,15 @@ function SemVsScada(params) {
 
 	const rendergraphtoend = (e) => {
 		if (selectedrows.length === 1) {
+			var to_end_scada = "";
+			var to_end_meter = "";
+
 			if (invert) {
-				var to_end_scada = selectedrows[0].Scada_To_End_data.map((a) => a * -1);
-				var to_end_meter = selectedrows[0].Meter_To_End_data.map((a) => a * -1);
+				to_end_scada = selectedrows[0].Scada_To_End_data.map((a) => a * -1);
+				to_end_meter = selectedrows[0].Meter_To_End_data.map((a) => a * -1);
 			} else {
-				var to_end_scada = selectedrows[0].Scada_To_End_data;
-				var to_end_meter = selectedrows[0].Meter_To_End_data;
+				to_end_scada = selectedrows[0].Scada_To_End_data;
+				to_end_meter = selectedrows[0].Meter_To_End_data;
 			}
 
 			return (
@@ -1289,7 +1199,7 @@ function SemVsScada(params) {
 
 							var all_datasets = [];
 
-							selectedrows.map((g) => {
+							selectedrows.forEach((g) => {
 								To_table_val1.push({
 									Feeder_Name: "To End: " + selectedrows[0].Feeder_Name,
 									SCADA_Key: selectedrows[0].Key_To_End,
@@ -1571,10 +1481,11 @@ function SemVsScada(params) {
 	};
 
 	const rendergraphScada = (e) => {
+		var far_end_scada = "";
 		if (invert) {
-			var far_end_scada = e.Scada_Far_End_data.map((a) => a * -1);
+			far_end_scada = e.Scada_Far_End_data.map((a) => a * -1);
 		} else {
-			var far_end_scada = e.Scada_Far_End_data;
+			far_end_scada = e.Scada_Far_End_data;
 		}
 
 		var rev_far_name = e.Feeder_Name.split("_");
@@ -1744,10 +1655,11 @@ function SemVsScada(params) {
 	};
 
 	const rendergraphSem = (e) => {
+		var far_end_sem = "";
 		if (invert) {
-			var far_end_sem = e.Meter_Far_End_data.map((a) => a * -1);
+			far_end_sem = e.Meter_Far_End_data.map((a) => a * -1);
 		} else {
-			var far_end_sem = e.Meter_Far_End_data;
+			far_end_sem = e.Meter_Far_End_data;
 		}
 
 		var rev_far_name = e.Feeder_Name.split("_");
@@ -2573,15 +2485,6 @@ function SemVsScada(params) {
 					whitespace: "nowrap",
 				}}
 			>
-				{/* <Tooltip target=".export-buttons>button" position="bottom" /> */}
-				{/* <div className="flex justify-content-center align-items-center mb-4 gap-2">
-					<InputSwitch
-						inputId="input-rowclick"
-						checked={rowClick}
-						onChange={(e) => setrowClick(e.value)}
-					/>
-					<label htmlFor="input-rowclick">Row Click</label>
-				</div> */}
 				<DataTable
 					scrollHeight="830px"
 					filters={filters}
@@ -2639,16 +2542,7 @@ function SemVsScada(params) {
 						headerClassName="p-head"
 						frozen
 					></Column>
-					{/* <Column
-						style={{
-							maxWidth: "14rem",
-							minWidth: "12rem",
-							wordBreak: "break-word",
-						}}
-						field="Feeder_Hindi"
-						header="Feeder Hindi"
-						headerClassName="p-head"
-					></Column> */}
+
 					<Column
 						style={{
 							minWidth: "6rem",
@@ -2715,33 +2609,6 @@ function SemVsScada(params) {
 						headerClassName="p-head"
 					></Column>
 
-					{/* <Column
-						bodyClassName="otherPercent"
-						alignHeader="center"
-						align={"center"}
-						style={{
-							maxWidth: "4rem",
-							minWidth: "4rem",
-							wordBreak: "break-word",
-						}}
-						field="to_end_max_val"
-						header="To Max %"
-						headerClassName="p-head"
-					></Column>
-					<Column
-						bodyClassName="otherPercent"
-						alignHeader="center"
-						align={"center"}
-						style={{
-							maxWidth: "4rem",
-							minWidth: "4rem",
-							wordBreak: "break-word",
-						}}
-						field="to_end_min_val"
-						header="To Min %"
-						headerClassName="p-head"
-					></Column> */}
-
 					<Column
 						dataType="numeric"
 						filterElement={avgFilterTemplate}
@@ -2797,33 +2664,6 @@ function SemVsScada(params) {
 						body={rendergraphtoend}
 						headerClassName="p-head"
 					></Column>
-
-					{/* <Column
-						bodyClassName="otherPercent"
-						alignHeader="center"
-						align={"center"}
-						style={{
-							maxWidth: "4rem",
-							minWidth: "4rem",
-							wordBreak: "break-word",
-						}}
-						field="far_end_max_val"
-						header="Far Max %"
-						headerClassName="p-head"
-					></Column>
-					<Column
-						bodyClassName="otherPercent"
-						alignHeader="center"
-						align={"center"}
-						style={{
-							maxWidth: "4rem",
-							minWidth: "4rem",
-							wordBreak: "break-word",
-						}}
-						field="far_end_min_val"
-						header="Far Min %"
-						headerClassName="p-head"
-					></Column> */}
 
 					<Column
 						dataType="numeric"

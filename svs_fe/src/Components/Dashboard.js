@@ -151,23 +151,13 @@ function Dashboard(params) {
 
 					const documentStyle = getComputedStyle(document.documentElement);
 
-					// Pie/Doughnut Chart Data
+					// Pie Chart Data (visually appealing, matching bar chart style)
 					setChartData({
 						labels: [
-							"No. of Tie-Lines with Error:" +
-								data.total_count[0] +
-								" (" +
-								((data.total_count[0] / data.total_count[1]) * 100).toFixed(2) +
-								" %)",
-							"No. of Tie-Lines without Error:" +
-								(data.total_count[1] - data.total_count[0]) +
-								" (" +
-								(
-									((data.total_count[1] - data.total_count[0]) /
-										data.total_count[1]) *
-									100
-								).toFixed(2) +
-								" %)",
+							`Tie-Lines with Error (${data.total_count[0]})`,
+							`Tie-Lines without Error (${
+								data.total_count[1] - data.total_count[0]
+							})`,
 						],
 						datasets: [
 							{
@@ -179,16 +169,88 @@ function Dashboard(params) {
 									documentStyle.getPropertyValue("--pink-500"),
 									documentStyle.getPropertyValue("--blue-500"),
 								],
+								borderColor: [
+									documentStyle.getPropertyValue("--pink-700"),
+									documentStyle.getPropertyValue("--blue-700"),
+								],
 								hoverBackgroundColor: [
 									documentStyle.getPropertyValue("--pink-400"),
 									documentStyle.getPropertyValue("--blue-400"),
 								],
+								borderWidth: 3,
+								borderRadius: 12,
+								hoverOffset: 16,
 							},
 						],
 					});
 					setChartOptions({
+						responsive: true,
+						maintainAspectRatio: false,
 						plugins: {
-							legend: { labels: { usePointStyle: true } },
+							legend: {
+								labels: {
+									color: documentStyle.getPropertyValue("--text-color"),
+									font: { size: 15, weight: "bold" },
+									usePointStyle: true,
+									padding: 20,
+								},
+								position: "top",
+								align: "center",
+							},
+							title: {
+								display: true,
+								text: "Tie-Lines Error Distribution",
+								color: documentStyle.getPropertyValue("--text-color"),
+								font: { size: 20, weight: "bold" },
+								padding: { top: 10, bottom: 30 },
+							},
+							tooltip: {
+								enabled: true,
+								backgroundColor: "#222",
+								titleColor: "#fff",
+								bodyColor: "#fff",
+								borderColor: "#aaa",
+								borderWidth: 1,
+								padding: 12,
+								caretSize: 8,
+								displayColors: true,
+								callbacks: {
+									label: (context) => {
+										const total = data.total_count[1];
+										const value = context.parsed;
+										const percent = ((value / total) * 100).toFixed(2);
+										return `${context.label}: ${value} (${percent}%)`;
+									},
+								},
+							},
+							datalabels: {
+								display: true,
+								color: "#222",
+								font: { weight: "bold", size: 13 },
+								anchor: "end",
+								align: "end",
+								formatter: (value, ctx) => {
+									const total = ctx.chart.data.datasets[0].data.reduce(
+										(a, b) => a + b,
+										0
+									);
+									return ((value / total) * 100).toFixed(1) + "%";
+								},
+							},
+						},
+						animation: {
+							animateRotate: true,
+							animateScale: true,
+							duration: 1200,
+							easing: "easeInOutQuart",
+						},
+						layout: {
+							padding: {
+								left: 10,
+								right: 10,
+								top: 10,
+								bottom: 10,
+							},
 						},
 					});
 
@@ -255,9 +317,16 @@ function Dashboard(params) {
 								type: "line",
 								label: "% of Tie-Lines with Error",
 								borderColor: documentStyle.getPropertyValue("--green-500"),
-								borderWidth: 2,
-								fill: false,
-								tension: 0.4,
+								backgroundColor: "rgba(34,197,94,0.15)",
+								borderWidth: 3,
+								pointBackgroundColor:
+									documentStyle.getPropertyValue("--green-500"),
+								pointBorderColor: "#fff",
+								pointRadius: 7,
+								pointHoverRadius: 10,
+								pointStyle: "rectRounded",
+								fill: true,
+								tension: 0.45,
 								data: chartKeys.map((k, i) =>
 									chartDivisors[i]
 										? (
@@ -267,20 +336,31 @@ function Dashboard(params) {
 										: 0
 								),
 								yAxisID: "y1",
+								order: 2,
 							},
 							{
 								type: "bar",
 								label: "To-End Tie-Lines with Error",
 								backgroundColor: documentStyle.getPropertyValue("--pink-500"),
-								data: chartKeys.map((k) => summary[k]?.[1] || 0),
-								borderColor: "white",
+								borderColor: documentStyle.getPropertyValue("--pink-700"),
 								borderWidth: 2,
+								borderRadius: 8,
+								barPercentage: 0.7,
+								categoryPercentage: 0.6,
+								data: chartKeys.map((k) => summary[k]?.[1] || 0),
+								order: 1,
 							},
 							{
 								type: "bar",
 								label: "Far End Tie-Lines with Error",
 								backgroundColor: documentStyle.getPropertyValue("--blue-500"),
+								borderColor: documentStyle.getPropertyValue("--blue-700"),
+								borderWidth: 2,
+								borderRadius: 8,
+								barPercentage: 0.7,
+								categoryPercentage: 0.6,
 								data: chartKeys.map((k) => summary[k]?.[2] || 0),
+								order: 1,
 							},
 						],
 					});
@@ -296,11 +376,45 @@ function Dashboard(params) {
 						maintainAspectRatio: false,
 						aspectRatio: 0.6,
 						plugins: {
-							legend: { labels: { color: textColor } },
+							legend: {
+								labels: {
+									color: textColor,
+									font: { size: 15, weight: "bold" },
+									usePointStyle: true,
+									padding: 20,
+								},
+								position: "top",
+								align: "center",
+								onClick: (e, legendItem, legend) => {
+									const ci = legend.chart;
+									const index = legendItem.datasetIndex;
+									const meta = ci.getDatasetMeta(index);
+									meta.hidden =
+										meta.hidden === null
+											? !ci.data.datasets[index].hidden
+											: null;
+									ci.update();
+								},
+							},
+							title: {
+								display: true,
+								text: "Tie-Lines Error Analysis by Constituent",
+								color: textColor,
+								font: { size: 20, weight: "bold" },
+								padding: { top: 10, bottom: 30 },
+							},
 							tooltip: {
 								enabled: true,
 								mode: "nearest",
 								intersect: false,
+								backgroundColor: "#222",
+								titleColor: "#fff",
+								bodyColor: "#fff",
+								borderColor: "#aaa",
+								borderWidth: 1,
+								padding: 12,
+								caretSize: 8,
+								displayColors: true,
 								callbacks: {
 									label: (context) => {
 										const idx = chartLabels.indexOf(context.label);
@@ -311,29 +425,133 @@ function Dashboard(params) {
 									},
 								},
 							},
+							// tooltip: {
+							// 	enabled: true,
+							// 	mode: "nearest",
+							// 	intersect: false,
+							// 	callbacks: {
+							// 		label: (context) => {
+							// 			const idx = chartLabels.indexOf(context.label);
+							// 			const key = chartKeys[idx];
+							// 			const display = chartLabels[idx];
+							// 			const names = name_object[key] || [];
+							// 			return [`${display}: ${context.parsed.y}`, ...names];
+							// 		},
+							// 	},
+							// },
+							datalabels: {
+								display: true,
+								color: "#222",
+								font: { weight: "bold", size: 13 },
+								anchor: "end",
+								align: "top",
+								formatter: (value, ctx) => {
+									if (ctx.dataset.type === "line") {
+										return value + "%";
+									}
+									return value;
+								},
+							},
+							zoom: {
+								zoom: {
+									wheel: { enabled: true },
+									pinch: { enabled: true },
+									mode: "xy",
+								},
+								pan: {
+									enabled: true,
+									mode: "xy",
+								},
+							},
 						},
-						hover: { mode: "nearest", intersect: true },
+						hover: { mode: "nearest", intersect: true, animationDuration: 400 },
+						animation: {
+							duration: 1200,
+							easing: "easeInOutQuart",
+						},
 						scales: {
 							x: {
-								title: { display: true, text: "Constituents" },
-								ticks: { color: textColorSecondary },
-								grid: { color: surfaceBorder },
+								title: {
+									display: true,
+									text: "Constituents",
+									color: textColor,
+									font: { size: 16, weight: "bold" },
+								},
+								ticks: {
+									color: textColorSecondary,
+									font: { size: 13, weight: "bold" },
+									autoSkip: false,
+									maxRotation: 30,
+									minRotation: 0,
+								},
+								grid: {
+									color: surfaceBorder,
+									borderDash: [4, 4],
+								},
 							},
 							y: {
-								title: { display: true, text: "No. of Tie-Lines with Error " },
+								title: {
+									display: true,
+									text: "No. of Tie-Lines with Error",
+									color: textColor,
+									font: { size: 15, weight: "bold" },
+								},
 								type: "linear",
 								display: true,
 								position: "left",
-								ticks: { color: textColorSecondary },
-								grid: { color: surfaceBorder },
+								ticks: {
+									color: textColorSecondary,
+									font: { size: 13 },
+									stepSize: 1,
+									beginAtZero: true,
+								},
+								grid: {
+									color: surfaceBorder,
+									drawBorder: true,
+									borderDash: [4, 4],
+								},
 							},
 							y1: {
-								title: { display: true, text: "% of Tie-Lines with Error " },
+								title: {
+									display: true,
+									text: "% of Tie-Lines with Error",
+									color: textColor,
+									font: { size: 15, weight: "bold" },
+								},
 								type: "linear",
 								display: true,
 								position: "right",
-								ticks: { color: textColorSecondary },
-								grid: { drawOnChartArea: true, color: surfaceBorder },
+								ticks: {
+									color: textColorSecondary,
+									font: { size: 13 },
+									callback: (val) => val + "%",
+									beginAtZero: true,
+								},
+								grid: {
+									drawOnChartArea: false,
+								},
+							},
+						},
+						layout: {
+							padding: {
+								left: 10,
+								right: 10,
+								top: 10,
+								bottom: 10,
+							},
+						},
+						responsive: true,
+						elements: {
+							bar: {
+								borderSkipped: false,
+								borderRadius: 8,
+							},
+							point: {
+								radius: 7,
+								hoverRadius: 10,
+								backgroundColor: documentStyle.getPropertyValue("--green-500"),
+								borderColor: "#fff",
+								borderWidth: 2,
 							},
 						},
 					});
@@ -577,13 +795,10 @@ function Dashboard(params) {
 									type="pie"
 									data={chartData}
 									options={chartOptions}
-									style={{ width: "40vh", height: "35vh" }}
+									style={{ width: "40vh", height: "40vh" }}
 									className="w-auto"
 								/>
-								<div className="chart-label">
-									Number of Tie-Lines with Error (Pie-Chart) <br /> Total
-									Tie-Lines:373
-								</div>
+								<div className="chart-label">Total Tie-Lines:373</div>
 							</div>
 
 							<div className="chart-container">
@@ -591,11 +806,11 @@ function Dashboard(params) {
 									type="line"
 									data={chartData1}
 									options={chartOptions1}
-									style={{ width: "100vh", height: "40vh" }}
+									style={{ width: "100vh", height: "43vh" }}
 								/>
-								<div className="chart-label">
+								{/* <div className="chart-label">
 									Tie-Lines Error Analysis (Bar & Line Chart)
-								</div>
+								</div> */}
 							</div>
 						</div>
 					</div>
