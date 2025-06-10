@@ -664,7 +664,7 @@ function Dashboard(params) {
 							},
 							title: {
 								display: true,
-								text: "Tie-Lines Error Analysis by Constituent",
+								text: "Tie-Lines Error Analysis Block-wise",
 								color: textColor,
 								font: { size: 20, weight: "bold" },
 								padding: { top: 10, bottom: 30 },
