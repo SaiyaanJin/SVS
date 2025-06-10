@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-// import { Column } from "primereact/column";
-// import { DataTable } from "primereact/datatable";
 import moment from "moment";
 import { jwtDecode } from "jwt-decode";
 import { useLocation } from "react-router-dom";
@@ -13,6 +11,13 @@ import { BlockUI } from "primereact/blockui";
 import { Chart } from "primereact/chart";
 import { Calendar } from "primereact/calendar";
 import { InputNumber } from "primereact/inputnumber";
+import "../cssfiles/Animation.css";
+import "../cssfiles/PasswordDemo.css";
+import "primeflex/primeflex.css";
+import "primereact/resources/themes/lara-light-indigo/theme.css"; //theme
+import "primereact/resources/primereact.min.css"; //core css
+import "primeicons/primeicons.css"; //icons
+import "../cssfiles/ButtonDemo.css";
 
 function Dashboard(params) {
 	const search = useLocation().search;
@@ -586,6 +591,8 @@ function Dashboard(params) {
 					);
 
 					if (!data) return;
+					setBlocked(false);
+					setloading_show(false);
 
 					const documentStyle = getComputedStyle(document.documentElement);
 
@@ -838,13 +845,12 @@ function Dashboard(params) {
 	return (
 		<>
 			{/* Loader Overlay */}
-			{loading_show && (
-				<div className="loader-overlay">
-					<div className="loader">
-						<div className="spinner"></div>
-					</div>
+			<div hidden={!loading_show}>
+				<div className="loader">
+					<div className="spinner"></div>
 				</div>
-			)}
+			</div>
+
 			<BlockUI blocked={blocked} fullScreen />
 
 			{/* Login Prompt */}
