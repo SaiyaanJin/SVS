@@ -278,15 +278,16 @@ function Dashboard(params) {
 							map[name] = map[name] || new Set();
 							map[name].add(val);
 						}
-						name_object[k] = Object.entries(map).map(([name, set]) => {
-							const has0 = set.has(0),
-								has1 = set.has(1);
-							return `${name} ${
-								has0 && has1 ? "Both End" : has0 ? "To End" : "Far End"
-							}`;
-						});
+						name_object[k] = [
+							Object.entries(map)
+								.filter(([_, set]) => set.has(0))
+								.map(([name, set]) => `${name} To End`),
+							Object.entries(map)
+								.filter(([_, set]) => set.has(1))
+								.map(([name]) => `${name} Far End`),
+						];
 					}
-
+					
 					// Chart labels and keys
 					const chartLabels = [
 						"BIHAR",
@@ -322,31 +323,31 @@ function Dashboard(params) {
 					setChartData1({
 						labels: chartLabels,
 						datasets: [
-							{
-								type: "line",
-								label: "% of Tie-Lines with Error",
-								borderColor: documentStyle.getPropertyValue("--green-500"),
-								backgroundColor: "rgba(34,197,94,0.15)",
-								borderWidth: 3,
-								pointBackgroundColor:
-									documentStyle.getPropertyValue("--green-500"),
-								pointBorderColor: "#fff",
-								pointRadius: 7,
-								pointHoverRadius: 10,
-								pointStyle: "rectRounded",
-								fill: true,
-								tension: 0.45,
-								data: chartKeys.map((k, i) =>
-									chartDivisors[i]
-										? (
-												((summary[k]?.[0] || 0) / chartDivisors[i]) *
-												100
-										  ).toFixed(2)
-										: 0
-								),
-								yAxisID: "y1",
-								order: 2,
-							},
+							// {
+							// 	type: "line",
+							// 	label: "% of Tie-Lines with Error",
+							// 	borderColor: documentStyle.getPropertyValue("--green-500"),
+							// 	backgroundColor: "rgba(34,197,94,0.15)",
+							// 	borderWidth: 3,
+							// 	pointBackgroundColor:
+							// 		documentStyle.getPropertyValue("--green-500"),
+							// 	pointBorderColor: "#fff",
+							// 	pointRadius: 7,
+							// 	pointHoverRadius: 10,
+							// 	pointStyle: "rectRounded",
+							// 	fill: true,
+							// 	tension: 0.45,
+							// 	data: chartKeys.map((k, i) =>
+							// 		chartDivisors[i]
+							// 			? (
+							// 					((summary[k]?.[0] || 0) / chartDivisors[i]) *
+							// 					100
+							// 			  ).toFixed(2)
+							// 			: 0
+							// 	),
+							// 	yAxisID: "y1",
+							// 	order: 2,
+							// },
 							{
 								type: "bar",
 								label: "To-End Tie-Lines with Error",
@@ -426,11 +427,21 @@ function Dashboard(params) {
 								displayColors: true,
 								callbacks: {
 									label: (context) => {
+										
 										const idx = chartLabels.indexOf(context.label);
 										const key = chartKeys[idx];
 										const display = chartLabels[idx];
-										const names = name_object[key] || [];
-										return [`${display}: ${context.parsed.y}`, ...names];
+										// const names = name_object[key] || [];
+										
+										if (context.dataset.label==="To-End Tie-Lines with Error"){											
+												const names = name_object[key][0] || [];
+												return [`${display} To End has: ${context.parsed.y} Tie-Lines`, ...names];											
+										}
+										else{
+												const names = name_object[key][1] || [];
+												return [`${display} Far End has: ${context.parsed.y} Tie-Lines`, ...names];
+									}
+										
 									},
 								},
 							},
@@ -667,7 +678,7 @@ function Dashboard(params) {
 								displayColors: true,
 								callbacks: {
 									label: (context) => {
-										console.log(context);
+										// console.log(context);
 										const idx = Number(context.label);
 										// const key = chartKeys[idx];
 										const display = "Block No: " + idx;
