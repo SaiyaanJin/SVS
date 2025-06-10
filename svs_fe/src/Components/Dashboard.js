@@ -213,7 +213,7 @@ function Dashboard(params) {
 							},
 							title: {
 								display: true,
-								text: "Tie-Lines Error Pie-Chart (373 Tie-Lines)",
+								text: "Tie-Lines Error Pie-Chart (332 Tie-Lines)",
 								color: documentStyle.getPropertyValue("--text-color"),
 								font: { size: 20, weight: "bold" },
 								padding: { top: 10, bottom: 30 },
@@ -306,7 +306,6 @@ function Dashboard(params) {
 						"PG ER1",
 						"PG ER2",
 						"PG ODISHA PROJECT",
-						"MIS CALC TO",
 					];
 					const chartKeys = [
 						"BH",
@@ -320,39 +319,38 @@ function Dashboard(params) {
 						"PG_ER1",
 						"PG_ER2",
 						"PG_odisha_project",
-						"MIS_CALC_TO",
 					];
-					const chartDivisors = [85, 32, 52, 35, 4, 52, 2, 0, 144, 76, 64, 41];
+					const chartDivisors = [85, 32, 52, 35, 4, 52, 2, 0, 144, 76, 64];
 
 					// Line/Bar Chart Data
 					setChartData1({
 						labels: chartLabels,
 						datasets: [
-							// {
-							// 	type: "line",
-							// 	label: "% of Tie-Lines with Error",
-							// 	borderColor: documentStyle.getPropertyValue("--green-500"),
-							// 	backgroundColor: "rgba(34,197,94,0.15)",
-							// 	borderWidth: 3,
-							// 	pointBackgroundColor:
-							// 		documentStyle.getPropertyValue("--green-500"),
-							// 	pointBorderColor: "#fff",
-							// 	pointRadius: 7,
-							// 	pointHoverRadius: 10,
-							// 	pointStyle: "rectRounded",
-							// 	fill: true,
-							// 	tension: 0.45,
-							// 	data: chartKeys.map((k, i) =>
-							// 		chartDivisors[i]
-							// 			? (
-							// 					((summary[k]?.[0] || 0) / chartDivisors[i]) *
-							// 					100
-							// 			  ).toFixed(2)
-							// 			: 0
-							// 	),
-							// 	yAxisID: "y1",
-							// 	order: 2,
-							// },
+							{
+								type: "line",
+								label: "% of Tie-Lines with Error",
+								borderColor: documentStyle.getPropertyValue("--green-500"),
+								backgroundColor: "rgba(34,197,94,0.15)",
+								borderWidth: 3,
+								pointBackgroundColor:
+									documentStyle.getPropertyValue("--green-500"),
+								pointBorderColor: "#fff",
+								pointRadius: 7,
+								pointHoverRadius: 10,
+								pointStyle: "rectRounded",
+								fill: true,
+								tension: 0.45,
+								data: chartKeys.map((k, i) =>
+									chartDivisors[i]
+										? (
+												((summary[k]?.[0] || 0) / chartDivisors[i]) *
+												100
+										  ).toFixed(2)
+										: 0
+								),
+								yAxisID: "y1",
+								order: 2,
+							},
 							{
 								type: "bar",
 								label: "To-End Tie-Lines with Error",
@@ -437,20 +435,26 @@ function Dashboard(params) {
 										const display = chartLabels[idx];
 										// const names = name_object[key] || [];
 
-										if (
-											context.dataset.label === "To-End Tie-Lines with Error"
-										) {
-											const names = name_object[key][0] || [];
+										if (context.dataset.type === "line") {
 											return [
-												`${display} To End has: ${context.parsed.y} Tie-Lines`,
-												...names,
+												"% of Tie-Line with Error: " + context.parsed.y + "%",
 											];
 										} else {
-											const names = name_object[key][1] || [];
-											return [
-												`${display} Far End has: ${context.parsed.y} Tie-Lines`,
-												...names,
-											];
+											if (
+												context.dataset.label === "To-End Tie-Lines with Error"
+											) {
+												const names = name_object[key][0] || [];
+												return [
+													`${display} To End has: ${context.parsed.y} Tie-Lines`,
+													...names,
+												];
+											} else {
+												const names = name_object[key][1] || [];
+												return [
+													`${display} Far End has: ${context.parsed.y} Tie-Lines`,
+													...names,
+												];
+											}
 										}
 									},
 								},
@@ -697,7 +701,7 @@ function Dashboard(params) {
 										const names = data[0][idx - 1] || [];
 
 										if (context.dataset.type === "line") {
-											return ["Max % of Error: " + context.parsed.y];
+											return ["Max % of Error: " + context.parsed.y + "%"];
 										} else {
 											return [
 												`${display} has ${context.parsed.y} Tie-Lines`,
