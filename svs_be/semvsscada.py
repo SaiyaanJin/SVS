@@ -139,6 +139,16 @@ def dashboard_names():
 
     return jsonify(response)
 
+@app.route('/dashboard_names_daywise', methods=['GET', 'POST'])
+def dashboard_names_daywise():
+
+    date = request.args['date']
+    error_percentage = request.args['error_percent']
+
+    response = daywise_names(date, error_percentage)
+
+    return jsonify(response)
+
     # /////////////////////////////////////////////////////////bashboard////////////////////////////////
 
 

@@ -31,12 +31,19 @@ function Dashboard(params) {
 
 	const [chartData, setChartData] = useState({});
 	const [chartOptions, setChartOptions] = useState({});
+	const [maxdate, setMaxdate] = useState(null);
 	const [dates, setDates] = useState(null);
 	const [error_percent, seterror_percent] = useState(3);
 	const [blocks, setblocks] = useState(70);
 
+	const [onedate, setOnedate] = useState(null);
+	const [one_error, setOneError] = useState(3);
+
 	const [chartData1, setChartData1] = useState({});
 	const [chartOptions1, setChartOptions1] = useState({});
+
+	const [chartData2, setChartData2] = useState({});
+	const [chartOptions2, setChartOptions2] = useState({});
 
 	useEffect(() => {
 		if (!id) {
@@ -69,6 +76,8 @@ function Dashboard(params) {
 						const sixDaysAgo = new Date(minDate);
 						sixDaysAgo.setDate(minDate.getDate() - 6);
 						setDates([sixDaysAgo, minDate]);
+						setMaxdate(minDate);
+						setOnedate(minDate);
 					}
 				}
 			} catch {}
@@ -166,16 +175,16 @@ function Dashboard(params) {
 									data.total_count[1] - data.total_count[0],
 								],
 								backgroundColor: [
-									documentStyle.getPropertyValue("--pink-500"),
-									documentStyle.getPropertyValue("--blue-500"),
+									documentStyle.getPropertyValue("--red-500"),
+									documentStyle.getPropertyValue("--green-500"),
 								],
 								borderColor: [
-									documentStyle.getPropertyValue("--pink-700"),
-									documentStyle.getPropertyValue("--blue-700"),
+									documentStyle.getPropertyValue("--red-700"),
+									documentStyle.getPropertyValue("--green-700"),
 								],
 								hoverBackgroundColor: [
-									documentStyle.getPropertyValue("--pink-400"),
-									documentStyle.getPropertyValue("--blue-400"),
+									documentStyle.getPropertyValue("--red-400"),
+									documentStyle.getPropertyValue("--green-400"),
 								],
 								borderWidth: 3,
 								borderRadius: 12,
@@ -199,7 +208,7 @@ function Dashboard(params) {
 							},
 							title: {
 								display: true,
-								text: "Tie-Lines Error Distribution",
+								text: "Tie-Lines Error Pie-Chart (373 Tie-Lines)",
 								color: documentStyle.getPropertyValue("--text-color"),
 								font: { size: 20, weight: "bold" },
 								padding: { top: 10, bottom: 30 },
@@ -425,20 +434,7 @@ function Dashboard(params) {
 									},
 								},
 							},
-							// tooltip: {
-							// 	enabled: true,
-							// 	mode: "nearest",
-							// 	intersect: false,
-							// 	callbacks: {
-							// 		label: (context) => {
-							// 			const idx = chartLabels.indexOf(context.label);
-							// 			const key = chartKeys[idx];
-							// 			const display = chartLabels[idx];
-							// 			const names = name_object[key] || [];
-							// 			return [`${display}: ${context.parsed.y}`, ...names];
-							// 		},
-							// 	},
-							// },
+
 							datalabels: {
 								display: true,
 								color: "#222",
@@ -561,6 +557,256 @@ function Dashboard(params) {
 			})();
 		}
 	}, [dates, blocks, error_percent]);
+
+	useEffect(() => {
+		if (onedate) {
+			(async () => {
+				try {
+					const { data } = await axios.post(
+						`/dashboard_names_daywise?date=${moment(onedate).format(
+							"YYYY-MM-DD"
+						)}&blocks=${blocks}&error_percent=${one_error}`,
+						{}
+					);
+
+					if (!data) return;
+
+					const documentStyle = getComputedStyle(document.documentElement);
+
+					// Prepare summary and name_object
+
+					// Chart labels and keys
+					const chartLabels = data[2];
+
+					// Line/Bar Chart Data
+					setChartData2({
+						labels: chartLabels,
+						datasets: [
+							{
+								type: "line",
+								label: "Max % of Error",
+								borderColor: documentStyle.getPropertyValue("--green-500"),
+								backgroundColor: "rgba(34,197,94,0.15)",
+								borderWidth: 3,
+								pointBackgroundColor:
+									documentStyle.getPropertyValue("--green-500"),
+								pointBorderColor: "#fff",
+								pointRadius: 7,
+								pointHoverRadius: 10,
+								pointStyle: "rectRounded",
+								fill: false,
+								tension: 0.45,
+								data: data[3],
+								yAxisID: "y1",
+								order: 2,
+							},
+							{
+								type: "bar",
+								label: "Number of Tie-Lines with Error",
+								backgroundColor: documentStyle.getPropertyValue("--blue-500"),
+								borderColor: documentStyle.getPropertyValue("--blue-700"),
+								borderWidth: 2,
+								borderRadius: 8,
+								barPercentage: 0.7,
+								categoryPercentage: 0.6,
+								data: data[1],
+								order: 1,
+							},
+						],
+					});
+
+					const textColor = documentStyle.getPropertyValue("--text-color");
+					const textColorSecondary = documentStyle.getPropertyValue(
+						"--text-color-secondary"
+					);
+					const surfaceBorder =
+						documentStyle.getPropertyValue("--surface-border");
+
+					setChartOptions2({
+						maintainAspectRatio: false,
+						aspectRatio: 0.6,
+						plugins: {
+							legend: {
+								labels: {
+									color: textColor,
+									font: { size: 15, weight: "bold" },
+									usePointStyle: true,
+									padding: 20,
+								},
+								position: "top",
+								align: "center",
+								onClick: (e, legendItem, legend) => {
+									const ci = legend.chart;
+									const index = legendItem.datasetIndex;
+									const meta = ci.getDatasetMeta(index);
+									meta.hidden =
+										meta.hidden === null
+											? !ci.data.datasets[index].hidden
+											: null;
+									ci.update();
+								},
+							},
+							title: {
+								display: true,
+								text: "Tie-Lines Error Analysis by Constituent",
+								color: textColor,
+								font: { size: 20, weight: "bold" },
+								padding: { top: 10, bottom: 30 },
+							},
+							tooltip: {
+								enabled: true,
+								mode: "nearest",
+								intersect: false,
+								backgroundColor: "#222",
+								titleColor: "#fff",
+								bodyColor: "#fff",
+								borderColor: "#aaa",
+								borderWidth: 1,
+								padding: 12,
+								caretSize: 8,
+								displayColors: true,
+								callbacks: {
+									label: (context) => {
+										console.log(context);
+										const idx = Number(context.label);
+										// const key = chartKeys[idx];
+										const display = "Block No: " + idx;
+										const names = data[0][idx - 1] || [];
+
+										if (context.dataset.type === "line") {
+											return ["Max % of Error: " + context.parsed.y];
+										} else {
+											return [
+												`${display} has ${context.parsed.y} Tie-Lines`,
+												...names,
+											];
+										}
+									},
+								},
+							},
+
+							datalabels: {
+								display: true,
+								color: "#222",
+								font: { weight: "bold", size: 13 },
+								anchor: "end",
+								align: "top",
+								formatter: (value, ctx) => {
+									if (ctx.dataset.type === "line") {
+										return value + "%";
+									}
+									return value;
+								},
+							},
+							zoom: {
+								zoom: {
+									wheel: { enabled: true },
+									pinch: { enabled: true },
+									mode: "xy",
+								},
+								pan: {
+									enabled: true,
+									mode: "xy",
+								},
+							},
+						},
+						hover: { mode: "nearest", intersect: true, animationDuration: 400 },
+						animation: {
+							duration: 1200,
+							easing: "easeInOutQuart",
+						},
+						scales: {
+							x: {
+								title: {
+									display: true,
+									text: "Blocks",
+									color: textColor,
+									font: { size: 16, weight: "bold" },
+								},
+								ticks: {
+									color: textColorSecondary,
+									font: { size: 13, weight: "bold" },
+									autoSkip: false,
+									maxRotation: 30,
+									minRotation: 0,
+								},
+								grid: {
+									color: surfaceBorder,
+									borderDash: [4, 4],
+								},
+							},
+							y: {
+								title: {
+									display: true,
+									text: "No. of Tie-Lines with Error",
+									color: textColor,
+									font: { size: 15, weight: "bold" },
+								},
+								type: "linear",
+								display: true,
+								position: "left",
+								ticks: {
+									color: textColorSecondary,
+									font: { size: 13 },
+									stepSize: 1,
+									beginAtZero: true,
+								},
+								grid: {
+									color: surfaceBorder,
+									drawBorder: true,
+									borderDash: [4, 4],
+								},
+							},
+							y1: {
+								title: {
+									display: true,
+									text: "% of Tie-Lines with Error",
+									color: textColor,
+									font: { size: 15, weight: "bold" },
+								},
+								type: "linear",
+								display: true,
+								position: "right",
+								ticks: {
+									color: textColorSecondary,
+									font: { size: 13 },
+									callback: (val) => val + "%",
+									beginAtZero: true,
+								},
+								grid: {
+									drawOnChartArea: false,
+								},
+							},
+						},
+						layout: {
+							padding: {
+								left: 10,
+								right: 10,
+								top: 10,
+								bottom: 10,
+							},
+						},
+						responsive: true,
+						elements: {
+							bar: {
+								borderSkipped: false,
+								borderRadius: 8,
+							},
+							point: {
+								radius: 7,
+								hoverRadius: 10,
+								backgroundColor: documentStyle.getPropertyValue("--green-500"),
+								borderColor: "#fff",
+								borderWidth: 2,
+							},
+						},
+					});
+				} catch (error) {
+					console.error(error);
+				}
+			})();
+		}
+	}, [onedate, blocks, one_error]);
 
 	const folder_delete = () => {
 		axios
@@ -777,6 +1023,7 @@ function Dashboard(params) {
 									Date Range:
 								</label>
 								<Calendar
+									maxDate={maxdate}
 									showIcon
 									value={dates}
 									onChange={(e) => setDates(e.value)}
@@ -798,116 +1045,64 @@ function Dashboard(params) {
 									style={{ width: "40vh", height: "40vh" }}
 									className="w-auto"
 								/>
-								<div className="chart-label">Total Tie-Lines:373</div>
 							</div>
-
 							<div className="chart-container">
 								<Chart
 									type="line"
 									data={chartData1}
 									options={chartOptions1}
-									style={{ width: "100vh", height: "43vh" }}
+									style={{ width: "120vh", height: "42vh" }}
 								/>
-								{/* <div className="chart-label">
+							</div>
+							{/* <div className="chart-label">
 									Tie-Lines Error Analysis (Bar & Line Chart)
 								</div> */}
-							</div>
 						</div>
 					</div>
 
-					<Divider align="left" hidden={!page_hide}>
-						{/* <span
-							className="p-tag"
-							style={{ backgroundColor: "#000", fontSize: "large" }}
-						>
-							<Avatar
-								icon="pi pi-chart-pie"
-								style={{ backgroundColor: "#000", color: "#fff" }}
-								shape="square"
-							/>
-							Charts
-						</span> */}
-					</Divider>
-					{/* Repeated Charts Section */}
-					{/* <div className="charts-row">
-						<div className="charts-controls">
-							<div className="charts-control">
-								<label htmlFor="percent" className="font-bold block mb-2">
-									Error Percent:
-								</label>
-								<InputNumber
-									showButtons
-									step={1}
-									size={2}
-									inputId="percent"
-									value={error_percent}
-									onValueChange={(e) => seterror_percent(e.value)}
-									suffix=" %"
-									max={100}
-									min={0}
-								/>
-							</div>
-							<div className="charts-control">
-								<label htmlFor="blocks" className="font-bold block mb-2">
-									Number of Blocks:
-								</label>
-								<InputNumber
-									showButtons
-									step={1}
-									size={5}
-									inputId="blocks"
-									value={blocks}
-									onValueChange={(e) => setblocks(e.value)}
-									suffix=" Blocks"
-									min={0}
-									max={1000}
-								/>
-							</div>
-							<div className="charts-control">
-								<label htmlFor="daterange" className="font-bold block mb-2">
-									Date Range:
-								</label>
-								<Calendar
-									showIcon
-									value={dates}
-									onChange={(e) => setDates(e.value)}
-									selectionMode="range"
-									readOnlyInput
-									hideOnRangeSelection
-									dateFormat="dd-mm-yy"
-									placeholder="Select Date Range"
-									inputId="daterange"
-								/>
-							</div>
-						</div>
-						<div className="charts-visuals">
-							<div className="chart-container">
-								<Chart
-									type="doughnut"
-									data={chartData}
-									options={chartOptions}
-									style={{ width: "32vh", height: "32vh" }}
-									className="w-auto"
-								/>
-								<div className="chart-label">
-									Number of Tie-Lines with Error (Pie-Chart) <br /> Total
-									Tie-Lines:373
-								</div>
-							</div>
+					<Divider align="left" hidden={!page_hide}></Divider>
 
-							<div className="chart-container">
-								<Chart
-									type="line"
-									data={chartData1}
-									options={chartOptions1}
-									style={{ width: "100vh", height: "32vh" }}
-								/>
-								<div className="chart-label">
-									Tie-Lines Error Analysis (Bar & Line Chart)
-								</div>
-							</div>
+					<div className="charts-row">
+						<label htmlFor="percent" className="font-bold block mb-2">
+							Error Percent:
+						</label>
+						<InputNumber
+							showButtons
+							step={1}
+							size={2}
+							inputId="percent"
+							value={one_error}
+							onValueChange={(e) => setOneError(e.value)}
+							suffix=" %"
+							max={100}
+							min={0}
+						/>
+
+						<label htmlFor="daterange" className="font-bold block mb-2">
+							Date :
+						</label>
+						<Calendar
+							showIcon
+							value={onedate}
+							onChange={(e) => setOnedate(e.value)}
+							maxDate={maxdate}
+							readOnlyInput
+							hideOnDateTimeSelect
+							dateFormat="dd-mm-yy"
+							placeholder="Select Date"
+						/>
+					</div>
+					<div className="charts-row">
+						<div className="chart-container">
+							<Chart
+								type="line"
+								data={chartData2}
+								options={chartOptions2}
+								style={{ width: "200vh", height: "70vh" }}
+							/>
 						</div>
-					</div> */}
+					</div>
+
 					<style>
 						{`
 							.charts-section {
@@ -951,7 +1146,7 @@ function Dashboard(params) {
 								flex-direction: column;
 								align-items: center;
 								background: #f9f9f9;
-								padding: 1rem 1.5rem;
+								// padding: 1rem 1.5rem;
 								border-radius: 8px;
 								box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 							}
