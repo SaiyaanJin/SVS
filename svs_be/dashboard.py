@@ -17,6 +17,7 @@ from PyPDF2 import PdfMerger
 from matplotlib import pyplot as plt
 from functools import partial
 from itertools import chain
+import numpy as np
 import concurrent.futures
 
 app = Flask(__name__)
@@ -99,14 +100,20 @@ def names(startDate, endDate, blocks, error_percentage):
         project = {'_id': 0, 'Data': 1, 'Date': 1}
         cursor = Scada_database.find(filter=filter, projection=project).sort('Date', ASCENDING)
         date_map = {d['Date'].date(): d.get('Data', []) for d in cursor}
-        data = list(chain.from_iterable(
-            [0 if pd.isna(val) else round(val, 2) for val in date_map.get(it.date(), [])] if date_map.get(it.date(), []) else [0]*96
-            for it in date_range
-        ))
+        # Use numpy for fast flattening and nan handling
+        data = []
+        for it in date_range:
+            arr = date_map.get(it.date(), None)
+            if arr:
+                arr = np.array(arr, dtype=np.float32)
+                arr = np.nan_to_num(arr, nan=0.0)
+                arr = np.round(arr, 2)
+                data.extend(arr.tolist())
+            else:
+                data.extend([0.0]*96)
         return data
 
     def fetch_meter_data(meter_id, date_range, db):
-        data = []
         years = sorted(set(it.year for it in date_range))
         date_map = {}
         for year in years:
@@ -119,10 +126,16 @@ def names(startDate, endDate, blocks, error_percentage):
             project = {'_id': 0, 'data': 1, 'date': 1}
             for d in Data_Table.find(filter=filter, projection=project):
                 date_map[d['date'].date()] = d.get('data', [])
-        data = list(chain.from_iterable(
-            [0 if pd.isna(val) else round(4 * val, 2) for val in date_map.get(it.date(), [])] if date_map.get(it.date(), []) else [0]*96
-            for it in date_range
-        ))
+        data = []
+        for it in date_range:
+            arr = date_map.get(it.date(), None)
+            if arr:
+                arr = np.array(arr, dtype=np.float32)
+                arr = np.nan_to_num(arr, nan=0.0)
+                arr = np.round(arr * 4, 2)
+                data.extend(arr.tolist())
+            else:
+                data.extend([0.0]*96)
         return data
 
     def fetch_meter_data_from_file(meter_code, date_range):
@@ -140,8 +153,10 @@ def names(startDate, endDate, blocks, error_percentage):
             if os.path.isdir(full_path) and os.path.exists(file_path):
                 dfEnd1 = pd.read_csv(file_path, header=None)[0]
                 for i in range(1, len(dfEnd1)):
-                    oneHourDataEnd1 = [changeToFloat(x) for x in dfEnd1[i].split()[1:]]
-                    data.extend([0 if pd.isna(x) else round(4 * x, 2) for x in oneHourDataEnd1])
+                    oneHourDataEnd1 = np.array([changeToFloat(x) for x in dfEnd1[i].split()[1:]], dtype=np.float32)
+                    oneHourDataEnd1 = np.nan_to_num(oneHourDataEnd1, nan=0.0)
+                    oneHourDataEnd1 = np.round(oneHourDataEnd1 * 4, 2)
+                    data.extend(oneHourDataEnd1.tolist())
         return data
 
     CONNECTION_STRING = "mongodb://10.3.230.94:1434"
@@ -162,11 +177,11 @@ def names(startDate, endDate, blocks, error_percentage):
                 meter_keys.add(item[k])
 
     # Parallel fetch for SCADA
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=32) as executor:
         scada_data_dict = dict(zip(scada_keys, executor.map(lambda key: fetch_scada_data(key, date_range), scada_keys)))
     # Parallel fetch for Meter
     meter_func = partial(fetch_meter_data, db=db) if folder == "no" else fetch_meter_data_from_file
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=32) as executor:
         meter_data_dict = dict(zip(meter_keys, executor.map(lambda key: meter_func(key, date_range), meter_keys)))
 
     drawal_feeders = {"BH_DRAWAL", "DV_DRAWAL", "GR_DRAWAL", "WB_DRAWAL", "JH_DRAWAL", "SI_DRAWAL"}
@@ -183,45 +198,57 @@ def names(startDate, endDate, blocks, error_percentage):
         To_Feeder = item['To_Feeder']
 
         def get_data(key, data_dict):
-            return data_dict.get(key, [0] * (len(date_range) * 96))
+            return np.array(data_dict.get(key, [0.0] * (len(date_range) * 96)), dtype=np.float32)
 
         valid_to_end = (Key_To_End.split(":")[0] not in ["No Key", "Duplicate Key"]) and (Meter_To_End.split(":")[0] not in ["No Key", "Duplicate Key"])
-        scada_to = get_data(Key_To_End, scada_data_dict) if valid_to_end else [0] * (len(date_range) * 96)
-        meter_to = get_data(Meter_To_End, meter_data_dict) if valid_to_end else [0] * (len(date_range) * 96)
+        scada_to = get_data(Key_To_End, scada_data_dict) if valid_to_end else np.zeros(len(date_range) * 96, dtype=np.float32)
+        meter_to = get_data(Meter_To_End, meter_data_dict) if valid_to_end else np.zeros(len(date_range) * 96, dtype=np.float32)
         valid_far_end = (Key_Far_End.split(":")[0] not in ["No Key", "Duplicate Key"]) and (Meter_Far_End.split(":")[0] not in ["No Key", "Duplicate Key"])
-        scada_far = get_data(Key_Far_End, scada_data_dict) if valid_far_end else [0] * (len(date_range) * 96)
-        meter_far = get_data(Meter_Far_End, meter_data_dict) if valid_far_end else [0] * (len(date_range) * 96)
+        scada_far = get_data(Key_Far_End, scada_data_dict) if valid_far_end else np.zeros(len(date_range) * 96, dtype=np.float32)
+        meter_far = get_data(Meter_Far_End, meter_data_dict) if valid_far_end else np.zeros(len(date_range) * 96, dtype=np.float32)
 
         if Feeder_Name in drawal_feeders:
-            meter_to = [abs(x) for x in meter_to]
-            meter_far = [abs(x) for x in meter_far]
+            meter_to = np.abs(meter_to)
+            meter_far = np.abs(meter_far)
 
-        count_to = count_far = 0
         error_pct = int(error_percentage)
         block_limit = int(blocks)
-        for i in range(len(meter_to)):
+        # Vectorized difference and mask
+        idx = np.arange(1, len(meter_to))
+        # To End
+        mask_to = (
+            (meter_to[1:] != meter_to[:-1]) &
+            (scada_to[1:] != scada_to[:-1]) &
+            (meter_to[1:] != 0) &
+            (scada_to[1:] != 0) &
+            (np.abs(meter_to[1:]) > offset) &
+            (np.abs(scada_to[1:]) > offset)
+        )
+        x_to = np.abs(meter_to[1:][mask_to])
+        y_to = np.abs(scada_to[1:][mask_to])
+        diff_to = np.abs(x_to - y_to)
+        percent_to = np.abs(np.round(100 * (x_to - y_to) / x_to, 2))
+        count_to = np.sum((diff_to > 5) & (percent_to > error_pct))
 
-            # To End
-            if i and meter_to[i] != meter_to[i-1] and scada_to[i] != scada_to[i-1] and meter_to[i] != 0 and scada_to[i] != 0 and abs(meter_to[i]) > offset and abs(scada_to[i]) > offset:
-                x, y = abs(meter_to[i]), abs(scada_to[i])
-                if abs(x - y) > 5:
-                    to_percent = abs(round((100 * (x - y) / x), 2))
-                    if to_percent > error_pct:
-                        count_to += 1
-            # Far End
-            if i and meter_far[i] != meter_far[i-1] and scada_far[i] != scada_far[i-1] and meter_far[i] != 0 and scada_far[i] != 0 and abs(meter_far[i]) > offset and abs(scada_far[i]) > offset:
-                x, y = abs(meter_far[i]), abs(scada_far[i])
-                if abs(x - y) > 5:
-                    far_percent = abs(round((100 * (x - y) / x), 2))
-                    if far_percent > error_pct:
-                        count_far += 1
+        # Far End
+        mask_far = (
+            (meter_far[1:] != meter_far[:-1]) &
+            (scada_far[1:] != scada_far[:-1]) &
+            (meter_far[1:] != 0) &
+            (scada_far[1:] != 0) &
+            (np.abs(meter_far[1:]) > offset) &
+            (np.abs(scada_far[1:]) > offset)
+        )
+        x_far = np.abs(meter_far[1:][mask_far])
+        y_far = np.abs(scada_far[1:][mask_far])
+        diff_far = np.abs(x_far - y_far)
+        percent_far = np.abs(np.round(100 * (x_far - y_far) / x_far, 2))
+        count_far = np.sum((diff_far > 5) & (percent_far > error_pct))
 
         if count_to > block_limit:
             constituent_name = Feeder_From
-            
             if constituent_name in constituent_keys and [Feeder_Name, 0] not in lookupDictionary[constituent_name]:
                 lookupDictionary[constituent_name].append([Feeder_Name, 0])
-
                 if constituent_name != 'MIS_CALC_TO':
                     total_count += 1
 
@@ -229,11 +256,10 @@ def names(startDate, endDate, blocks, error_percentage):
             constituent_name = To_Feeder
             if constituent_name in constituent_keys and [Feeder_Name, 1] not in lookupDictionary[constituent_name]:
                 lookupDictionary[constituent_name].append([Feeder_Name, 1])
-
                 if constituent_name != 'MIS_CALC_TO':
                     total_count += 1
 
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=32) as executor:
         list(executor.map(process_item, keydata))
 
     for key in constituent_keys:
@@ -242,8 +268,7 @@ def names(startDate, endDate, blocks, error_percentage):
     return final_data_to_send
 
 
-def daywise_names(date,  error_percentage):
-
+def daywise_names(date, error_percentage):
     folder = 'no'
     offset = 20
 
@@ -265,14 +290,19 @@ def daywise_names(date,  error_percentage):
         project = {'_id': 0, 'Data': 1, 'Date': 1}
         cursor = Scada_database.find(filter=filter, projection=project).sort('Date', ASCENDING)
         date_map = {d['Date'].date(): d.get('Data', []) for d in cursor}
-        data = list(chain.from_iterable(
-            [0 if pd.isna(val) else round(val, 2) for val in date_map.get(it.date(), [])] if date_map.get(it.date(), []) else [0]*96
-            for it in date_range
-        ))
+        data = []
+        for it in date_range:
+            arr = date_map.get(it.date(), None)
+            if arr:
+                arr = np.array(arr, dtype=np.float32)
+                arr = np.nan_to_num(arr, nan=0.0)
+                arr = np.round(arr, 2)
+                data.extend(arr.tolist())
+            else:
+                data.extend([0.0]*96)
         return data
 
     def fetch_meter_data(meter_id, date_range, db):
-        data = []
         years = sorted(set(it.year for it in date_range))
         date_map = {}
         for year in years:
@@ -285,10 +315,16 @@ def daywise_names(date,  error_percentage):
             project = {'_id': 0, 'data': 1, 'date': 1}
             for d in Data_Table.find(filter=filter, projection=project):
                 date_map[d['date'].date()] = d.get('data', [])
-        data = list(chain.from_iterable(
-            [0 if pd.isna(val) else round(4 * val, 2) for val in date_map.get(it.date(), [])] if date_map.get(it.date(), []) else [0]*96
-            for it in date_range
-        ))
+        data = []
+        for it in date_range:
+            arr = date_map.get(it.date(), None)
+            if arr:
+                arr = np.array(arr, dtype=np.float32)
+                arr = np.nan_to_num(arr, nan=0.0)
+                arr = np.round(arr * 4, 2)
+                data.extend(arr.tolist())
+            else:
+                data.extend([0.0]*96)
         return data
 
     def fetch_meter_data_from_file(meter_code, date_range):
@@ -306,17 +342,18 @@ def daywise_names(date,  error_percentage):
             if os.path.isdir(full_path) and os.path.exists(file_path):
                 dfEnd1 = pd.read_csv(file_path, header=None)[0]
                 for i in range(1, len(dfEnd1)):
-                    oneHourDataEnd1 = [changeToFloat(x) for x in dfEnd1[i].split()[1:]]
-                    data.extend([0 if pd.isna(x) else round(4 * x, 2) for x in oneHourDataEnd1])
+                    oneHourDataEnd1 = np.array([changeToFloat(x) for x in dfEnd1[i].split()[1:]], dtype=np.float32)
+                    oneHourDataEnd1 = np.nan_to_num(oneHourDataEnd1, nan=0.0)
+                    oneHourDataEnd1 = np.round(oneHourDataEnd1 * 4, 2)
+                    data.extend(oneHourDataEnd1.tolist())
         return data
 
     CONNECTION_STRING = "mongodb://10.3.230.94:1434"
     client = MongoClient(CONNECTION_STRING)
     db = client['meterDataArchival']
     keydata = clean_keydata(list(mapping_table.find(filter={}, projection={'_id': 0})))
-    final_data_to_send = {}
+    final_data_to_send = [[] for _ in range(96)]
     constituent_keys = ['BH', 'DV', 'GR', 'JH', 'MIS_CALC_TO', 'NTPC_ER_1', 'NTPC_ODISHA', 'PG_ER1', 'PG_ER2', 'WB', 'SI', 'PG_odisha_project']
-    lookupDictionary = defaultdict(list)
     date_range = get_date_range(date, date)
     scada_keys, meter_keys = set(), set()
     for item in keydata:
@@ -328,19 +365,16 @@ def daywise_names(date,  error_percentage):
                 meter_keys.add(item[k])
 
     # Parallel fetch for SCADA
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=32) as executor:
         scada_data_dict = dict(zip(scada_keys, executor.map(lambda key: fetch_scada_data(key, date_range), scada_keys)))
     # Parallel fetch for Meter
     meter_func = partial(fetch_meter_data, db=db) if folder == "no" else fetch_meter_data_from_file
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=32) as executor:
         meter_data_dict = dict(zip(meter_keys, executor.map(lambda key: meter_func(key, date_range), meter_keys)))
 
     drawal_feeders = {"BH_DRAWAL", "DV_DRAWAL", "GR_DRAWAL", "WB_DRAWAL", "JH_DRAWAL", "SI_DRAWAL"}
-    total_count = 0
-    final_data_to_send= [[] for _ in range(96)]
 
     def process_item(item):
-        nonlocal total_count
         Feeder_Name = item['Feeder_Name']
         Key_To_End = item['Key_To_End']
         Key_Far_End = item['Key_Far_End']
@@ -350,42 +384,39 @@ def daywise_names(date,  error_percentage):
         To_Feeder = item['To_Feeder']
 
         def get_data(key, data_dict):
-            return data_dict.get(key, [0] * (len(date_range) * 96))
+            return np.array(data_dict.get(key, [0.0] * (len(date_range) * 96)), dtype=np.float32)
 
         valid_to_end = (Key_To_End.split(":")[0] not in ["No Key", "Duplicate Key"]) and (Meter_To_End.split(":")[0] not in ["No Key", "Duplicate Key"])
-        scada_to = get_data(Key_To_End, scada_data_dict) if valid_to_end else [0] * (len(date_range) * 96)
-        meter_to = get_data(Meter_To_End, meter_data_dict) if valid_to_end else [0] * (len(date_range) * 96)
+        scada_to = get_data(Key_To_End, scada_data_dict) if valid_to_end else np.zeros(len(date_range) * 96, dtype=np.float32)
+        meter_to = get_data(Meter_To_End, meter_data_dict) if valid_to_end else np.zeros(len(date_range) * 96, dtype=np.float32)
         valid_far_end = (Key_Far_End.split(":")[0] not in ["No Key", "Duplicate Key"]) and (Meter_Far_End.split(":")[0] not in ["No Key", "Duplicate Key"])
-        scada_far = get_data(Key_Far_End, scada_data_dict) if valid_far_end else [0] * (len(date_range) * 96)
-        meter_far = get_data(Meter_Far_End, meter_data_dict) if valid_far_end else [0] * (len(date_range) * 96)
+        scada_far = get_data(Key_Far_End, scada_data_dict) if valid_far_end else np.zeros(len(date_range) * 96, dtype=np.float32)
+        meter_far = get_data(Meter_Far_End, meter_data_dict) if valid_far_end else np.zeros(len(date_range) * 96, dtype=np.float32)
 
         if Feeder_Name in drawal_feeders:
-            meter_to = [abs(x) for x in meter_to]
-            meter_far = [abs(x) for x in meter_far]
-
+            meter_to = np.abs(meter_to)
+            meter_far = np.abs(meter_far)
         elif Feeder_From == "MIS_CALC_TO":
             return
 
         error_pct = int(error_percentage)
-
-        for i in range(len(meter_to)):
-        
+        for i in range(1, len(meter_to)):
             # To End
-            if i and meter_to[i] != meter_to[i-1] and scada_to[i] != scada_to[i-1] and meter_to[i] != 0 and scada_to[i] != 0 and abs(meter_to[i]) > offset and abs(scada_to[i]) > offset:
+            if (meter_to[i] != meter_to[i-1] and scada_to[i] != scada_to[i-1] and meter_to[i] != 0 and scada_to[i] != 0 and abs(meter_to[i]) > offset and abs(scada_to[i]) > offset):
                 x, y = abs(meter_to[i]), abs(scada_to[i])
                 if abs(x - y) > 5:
                     to_percent = abs(round((100 * (x - y) / abs(max(x, y))), 2))
                     if to_percent > error_pct:
                         final_data_to_send[i].append(Feeder_Name+" To End: "+ str(to_percent)+" %")
             # Far End
-            if i and meter_far[i] != meter_far[i-1] and scada_far[i] != scada_far[i-1] and meter_far[i] != 0 and scada_far[i] != 0 and abs(meter_far[i]) > offset and abs(scada_far[i]) > offset:
+            if (meter_far[i] != meter_far[i-1] and scada_far[i] != scada_far[i-1] and meter_far[i] != 0 and scada_far[i] != 0 and abs(meter_far[i]) > offset and abs(scada_far[i]) > offset):
                 x, y = abs(meter_far[i]), abs(scada_far[i])
                 if abs(x - y) > 5:
                     far_percent = abs(round((100 * (x - y) / abs(max(x, y))), 2))
                     if far_percent > error_pct:
                         final_data_to_send[i].append(Feeder_Name+" Far End: "+ str(far_percent)+" %")
 
-    with ThreadPoolExecutor(max_workers=16) as executor:
+    with ThreadPoolExecutor(max_workers=32) as executor:
         list(executor.map(process_item, keydata))
 
     count_list = []
@@ -394,13 +425,11 @@ def daywise_names(date,  error_percentage):
     for i in range(len(final_data_to_send)):
         count_list.append(len(final_data_to_send[i]))
         final_data_to_send[i]= list(set(final_data_to_send[i]))
-        # Sort the list by the percentage value after the colon
         def extract_percentage(s):
             try:
                 return float(s.split(":")[-1].replace("%", "").strip())
             except Exception:
                 return 0.0
-        
         final_data_to_send[i] = sorted(final_data_to_send[i], key=extract_percentage, reverse=True)
         percent_list.append(extract_percentage(final_data_to_send[i][0]) if len(final_data_to_send[i])>0 else 0.0)
 

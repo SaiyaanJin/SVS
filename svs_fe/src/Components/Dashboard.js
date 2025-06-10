@@ -175,16 +175,16 @@ function Dashboard(params) {
 									data.total_count[1] - data.total_count[0],
 								],
 								backgroundColor: [
+									documentStyle.getPropertyValue("--red-300"),
+									documentStyle.getPropertyValue("--green-300"),
+								],
+								borderColor: [
 									documentStyle.getPropertyValue("--red-500"),
 									documentStyle.getPropertyValue("--green-500"),
 								],
-								borderColor: [
-									documentStyle.getPropertyValue("--red-700"),
-									documentStyle.getPropertyValue("--green-700"),
-								],
 								hoverBackgroundColor: [
-									documentStyle.getPropertyValue("--red-400"),
-									documentStyle.getPropertyValue("--green-400"),
+									documentStyle.getPropertyValue("--red-200"),
+									documentStyle.getPropertyValue("--green-200"),
 								],
 								borderWidth: 3,
 								borderRadius: 12,
@@ -287,7 +287,7 @@ function Dashboard(params) {
 								.map(([name]) => `${name} Far End`),
 						];
 					}
-					
+
 					// Chart labels and keys
 					const chartLabels = [
 						"BIHAR",
@@ -351,8 +351,8 @@ function Dashboard(params) {
 							{
 								type: "bar",
 								label: "To-End Tie-Lines with Error",
-								backgroundColor: documentStyle.getPropertyValue("--pink-500"),
-								borderColor: documentStyle.getPropertyValue("--pink-700"),
+								backgroundColor: documentStyle.getPropertyValue("--pink-300"),
+								borderColor: documentStyle.getPropertyValue("--pink-500"),
 								borderWidth: 2,
 								borderRadius: 8,
 								barPercentage: 0.7,
@@ -363,8 +363,8 @@ function Dashboard(params) {
 							{
 								type: "bar",
 								label: "Far End Tie-Lines with Error",
-								backgroundColor: documentStyle.getPropertyValue("--blue-500"),
-								borderColor: documentStyle.getPropertyValue("--blue-700"),
+								backgroundColor: documentStyle.getPropertyValue("--blue-300"),
+								borderColor: documentStyle.getPropertyValue("--blue-500"),
 								borderWidth: 2,
 								borderRadius: 8,
 								barPercentage: 0.7,
@@ -427,21 +427,26 @@ function Dashboard(params) {
 								displayColors: true,
 								callbacks: {
 									label: (context) => {
-										
 										const idx = chartLabels.indexOf(context.label);
 										const key = chartKeys[idx];
 										const display = chartLabels[idx];
 										// const names = name_object[key] || [];
-										
-										if (context.dataset.label==="To-End Tie-Lines with Error"){											
-												const names = name_object[key][0] || [];
-												return [`${display} To End has: ${context.parsed.y} Tie-Lines`, ...names];											
+
+										if (
+											context.dataset.label === "To-End Tie-Lines with Error"
+										) {
+											const names = name_object[key][0] || [];
+											return [
+												`${display} To End has: ${context.parsed.y} Tie-Lines`,
+												...names,
+											];
+										} else {
+											const names = name_object[key][1] || [];
+											return [
+												`${display} Far End has: ${context.parsed.y} Tie-Lines`,
+												...names,
+											];
 										}
-										else{
-												const names = name_object[key][1] || [];
-												return [`${display} Far End has: ${context.parsed.y} Tie-Lines`, ...names];
-									}
-										
 									},
 								},
 							},
@@ -556,7 +561,7 @@ function Dashboard(params) {
 							point: {
 								radius: 7,
 								hoverRadius: 10,
-								backgroundColor: documentStyle.getPropertyValue("--green-500"),
+								backgroundColor: documentStyle.getPropertyValue("--green-300"),
 								borderColor: "#fff",
 								borderWidth: 2,
 							},
@@ -614,8 +619,8 @@ function Dashboard(params) {
 							{
 								type: "bar",
 								label: "Number of Tie-Lines with Error",
-								backgroundColor: documentStyle.getPropertyValue("--blue-500"),
-								borderColor: documentStyle.getPropertyValue("--blue-700"),
+								backgroundColor: documentStyle.getPropertyValue("--blue-300"),
+								borderColor: documentStyle.getPropertyValue("--blue-500"),
 								borderWidth: 2,
 								borderRadius: 8,
 								barPercentage: 0.7,
