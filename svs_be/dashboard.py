@@ -264,7 +264,7 @@ def names(startDate, endDate, blocks, error_percentage):
 
     for key in constituent_keys:
         final_data_to_send[key] = lookupDictionary[key]
-    final_data_to_send['total_count'] = [total_count, len(keydata)]
+    final_data_to_send['total_count'] = [total_count, len(keydata)-41]  # Assuming 41 is the number of non-constituent keys
     return final_data_to_send
 
 
@@ -372,6 +372,8 @@ def daywise_names(date, error_percentage):
     with ThreadPoolExecutor(max_workers=32) as executor:
         meter_data_dict = dict(zip(meter_keys, executor.map(lambda key: meter_func(key, date_range), meter_keys)))
 
+   
+
     drawal_feeders = {"BH_DRAWAL", "DV_DRAWAL", "GR_DRAWAL", "WB_DRAWAL", "JH_DRAWAL", "SI_DRAWAL"}
 
     def process_item(item):
@@ -396,25 +398,42 @@ def daywise_names(date, error_percentage):
         if Feeder_Name in drawal_feeders:
             meter_to = np.abs(meter_to)
             meter_far = np.abs(meter_far)
-        elif Feeder_From == "MIS_CALC_TO":
+
+        if Feeder_From == "MIS_CALC_TO" or To_Feeder == "MIS_CALC_TO":
             return
 
         error_pct = int(error_percentage)
-        for i in range(1, len(meter_to)):
+        for i in range(len(meter_to)):
             # To End
-            if (meter_to[i] != meter_to[i-1] and scada_to[i] != scada_to[i-1] and meter_to[i] != 0 and scada_to[i] != 0 and abs(meter_to[i]) > offset and abs(scada_to[i]) > offset):
-                x, y = abs(meter_to[i]), abs(scada_to[i])
-                if abs(x - y) > 5:
-                    to_percent = abs(round((100 * (x - y) / abs(max(x, y))), 2))
-                    if to_percent > error_pct:
-                        final_data_to_send[i].append(Feeder_Name+" To End: "+ str(to_percent)+" %")
-            # Far End
-            if (meter_far[i] != meter_far[i-1] and scada_far[i] != scada_far[i-1] and meter_far[i] != 0 and scada_far[i] != 0 and abs(meter_far[i]) > offset and abs(scada_far[i]) > offset):
-                x, y = abs(meter_far[i]), abs(scada_far[i])
-                if abs(x - y) > 5:
-                    far_percent = abs(round((100 * (x - y) / abs(max(x, y))), 2))
-                    if far_percent > error_pct:
-                        final_data_to_send[i].append(Feeder_Name+" Far End: "+ str(far_percent)+" %")
+
+            if i == 0:
+                if (meter_to[i] != 0 and scada_to[i] != 0 and abs(meter_to[i]) > offset and abs(scada_to[i]) > offset):
+                    x, y = abs(meter_to[i]), abs(scada_to[i])
+                    if abs(x - y) > 5:
+                        to_percent = abs(round((100 * (x - y) / abs(max(x, y))), 2))
+                        if to_percent > error_pct:
+                            final_data_to_send[i].append(Feeder_Name+" To End: "+ str(to_percent)+" %")
+                # Far End
+                if (meter_far[i] != 0 and scada_far[i] != 0 and abs(meter_far[i]) > offset and abs(scada_far[i]) > offset):
+                    x, y = abs(meter_far[i]), abs(scada_far[i])
+                    if abs(x - y) > 5:
+                        far_percent = abs(round((100 * (x - y) / abs(max(x, y))), 2))
+                        if far_percent > error_pct:
+                            final_data_to_send[i].append(Feeder_Name+" Far End: "+ str(far_percent)+" %")
+            else:
+                if (meter_to[i] != meter_to[i-1] and scada_to[i] != scada_to[i-1] and meter_to[i] != 0 and scada_to[i] != 0 and abs(meter_to[i]) > offset and abs(scada_to[i]) > offset):
+                    x, y = abs(meter_to[i]), abs(scada_to[i])
+                    if abs(x - y) > 5:
+                        to_percent = abs(round((100 * (x - y) / abs(max(x, y))), 2))
+                        if to_percent > error_pct:
+                            final_data_to_send[i].append(Feeder_Name+" To End: "+ str(to_percent)+" %")
+                # Far End
+                if (meter_far[i] != meter_far[i-1] and scada_far[i] != scada_far[i-1] and meter_far[i] != 0 and scada_far[i] != 0 and abs(meter_far[i]) > offset and abs(scada_far[i]) > offset):
+                    x, y = abs(meter_far[i]), abs(scada_far[i])
+                    if abs(x - y) > 5:
+                        far_percent = abs(round((100 * (x - y) / abs(max(x, y))), 2))
+                        if far_percent > error_pct:
+                            final_data_to_send[i].append(Feeder_Name+" Far End: "+ str(far_percent)+" %")
 
     with ThreadPoolExecutor(max_workers=32) as executor:
         list(executor.map(process_item, keydata))

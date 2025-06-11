@@ -169,8 +169,8 @@ function Dashboard(params) {
 					// Pie Chart Data (visually appealing, matching bar chart style)
 					setChartData({
 						labels: [
-							`Tie-Lines with Error (${data.total_count[0]})`,
-							`Tie-Lines without Error (${
+							`T-L with Diff. (${data.total_count[0]})`,
+							`T-L within Reasonable Diff. (${
 								data.total_count[1] - data.total_count[0]
 							})`,
 						],
@@ -214,7 +214,7 @@ function Dashboard(params) {
 							},
 							title: {
 								display: true,
-								text: "Tie-Lines Error Pie-Chart (332 Tie-Lines)",
+								text: "Tie-Lines Summary (332 Tie-Lines)",
 								color: documentStyle.getPropertyValue("--text-color"),
 								font: { size: 20, weight: "bold" },
 								padding: { top: 10, bottom: 30 },
@@ -329,7 +329,7 @@ function Dashboard(params) {
 						datasets: [
 							{
 								type: "line",
-								label: "% of Tie-Lines with Error",
+								label: "% of Tie-Lines with Difference",
 								borderColor: documentStyle.getPropertyValue("--green-500"),
 								backgroundColor: "rgba(34,197,94,0.15)",
 								borderWidth: 3,
@@ -354,7 +354,7 @@ function Dashboard(params) {
 							},
 							{
 								type: "bar",
-								label: "To-End Tie-Lines with Error",
+								label: "To-End Tie-Lines with Difference",
 								backgroundColor: documentStyle.getPropertyValue("--pink-300"),
 								borderColor: documentStyle.getPropertyValue("--pink-500"),
 								borderWidth: 2,
@@ -366,7 +366,7 @@ function Dashboard(params) {
 							},
 							{
 								type: "bar",
-								label: "Far End Tie-Lines with Error",
+								label: "Far End Tie-Lines with Difference",
 								backgroundColor: documentStyle.getPropertyValue("--blue-300"),
 								borderColor: documentStyle.getPropertyValue("--blue-500"),
 								borderWidth: 2,
@@ -412,7 +412,7 @@ function Dashboard(params) {
 							},
 							title: {
 								display: true,
-								text: "Tie-Lines Error Analysis by Constituent",
+								text: "SEM vs SCADA Difference Analysis Constituent-Wise",
 								color: textColor,
 								font: { size: 20, weight: "bold" },
 								padding: { top: 10, bottom: 30 },
@@ -438,7 +438,9 @@ function Dashboard(params) {
 
 										if (context.dataset.type === "line") {
 											return [
-												"% of Tie-Line with Error: " + context.parsed.y + "%",
+												"% of Tie-Line with Difference: " +
+													context.parsed.y +
+													"%",
 											];
 										} else {
 											if (
@@ -514,7 +516,7 @@ function Dashboard(params) {
 							y: {
 								title: {
 									display: true,
-									text: "No. of Tie-Lines with Error",
+									text: "No. of Tie-Lines with Difference",
 									color: textColor,
 									font: { size: 15, weight: "bold" },
 								},
@@ -536,7 +538,7 @@ function Dashboard(params) {
 							y1: {
 								title: {
 									display: true,
-									text: "% of Tie-Lines with Error",
+									text: "% of Tie-Lines with Difference",
 									color: textColor,
 									font: { size: 15, weight: "bold" },
 								},
@@ -614,7 +616,7 @@ function Dashboard(params) {
 						datasets: [
 							{
 								type: "line",
-								label: "Max % of Error",
+								label: "Max % of Difference",
 								borderColor: documentStyle.getPropertyValue("--green-500"),
 								backgroundColor: "rgba(34,197,94,0.15)",
 								borderWidth: 3,
@@ -632,7 +634,7 @@ function Dashboard(params) {
 							},
 							{
 								type: "bar",
-								label: "Number of Tie-Lines with Error",
+								label: "Number of Tie-Lines with Difference",
 								backgroundColor: documentStyle.getPropertyValue("--blue-300"),
 								borderColor: documentStyle.getPropertyValue("--blue-500"),
 								borderWidth: 2,
@@ -678,7 +680,7 @@ function Dashboard(params) {
 							},
 							title: {
 								display: true,
-								text: "Tie-Lines Error Analysis Block-wise",
+								text: "SEM vs SCADA Difference Analysis Block-Wise",
 								color: textColor,
 								font: { size: 20, weight: "bold" },
 								padding: { top: 10, bottom: 30 },
@@ -704,7 +706,7 @@ function Dashboard(params) {
 										const names = data[0][idx - 1] || [];
 
 										if (context.dataset.type === "line") {
-											return ["Max % of Error: " + context.parsed.y + "%"];
+											return ["Max % of Difference: " + context.parsed.y + "%"];
 										} else {
 											return [
 												`${display} has ${context.parsed.y} Tie-Lines`,
@@ -768,7 +770,7 @@ function Dashboard(params) {
 							y: {
 								title: {
 									display: true,
-									text: "No. of Tie-Lines with Error",
+									text: "No. of Tie-Lines with Difference",
 									color: textColor,
 									font: { size: 15, weight: "bold" },
 								},
@@ -790,7 +792,7 @@ function Dashboard(params) {
 							y1: {
 								title: {
 									display: true,
-									text: "% of Tie-Lines with Error",
+									text: "% of Tie-Lines with Difference",
 									color: textColor,
 									font: { size: 15, weight: "bold" },
 								},
@@ -852,108 +854,154 @@ function Dashboard(params) {
 	return (
 		<>
 			{/* Loader Overlay */}
-			<div hidden={loading_show}>
-				<div className="loader">
-					<div className="spinner"></div>
+			{!loading_show && (
+				<div
+					className="loader-overlay"
+					aria-busy="true"
+					aria-label="Loading content"
+				>
+					<div
+						className="loader"
+						role="alert"
+						aria-live="assertive"
+						aria-atomic="true"
+					>
+						<div className="spinner spinner-shadow"></div>
+						<span className="visually-hidden">Loading...</span>
+					</div>
 				</div>
-			</div>
+			)}
 
 			<BlockUI blocked={blocked} fullScreen />
 
 			{/* Login Prompt */}
 			{page_hide && (
-				<Fieldset>
-					<div className="centered-content">
-						<h1>Please Login again by SSO</h1>
-					</div>
-				</Fieldset>
-			)}
-
-			<br />
-			{/* Welcome Banner */}
-			{!page_hide && (
-				<div className="welcome-banner">
-					<span className="scrolling-text">
-						Welcome&nbsp;
-						<b>
-							Sh. {Person_Name} ({User_id})
-						</b>
-						&nbsp;of&nbsp;<b>{Department}</b>
-					</span>
-					<style>
-						{`
-							.welcome-banner {
-								width: 100%;
-								overflow: hidden;
-								background: #f4f4f4;
-								padding: 0.5rem 0;
-								border-radius: 8px;
-								margin-bottom: 1rem;
-								box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-							}
-							.scrolling-text {
-								display: inline-block;
-								padding-left: 100%;
-								white-space: nowrap;
-								animation: scroll-left 18s linear infinite;
-								font-size: 1.1rem;
-								color: #222;
-							}
-							@keyframes scroll-left {
-								0% { transform: translateX(0); }
-								100% { transform: translateX(-100%); }
-							}
-							.centered-content {
-								display: flex;
-								justify-content: center;
-								align-items: center;
-								min-height: 120px;
-							}
-							.loader-overlay {
-								position: fixed;
-								top: 0; left: 0; right: 0; bottom: 0;
-								background: rgba(255,255,255,0.7);
-								z-index: 9999;
-								display: flex;
-								align-items: center;
-								justify-content: center;
-							}
-						`}
-					</style>
+				<div className="centered-content" style={{ minHeight: 300 }}>
+					<Fieldset
+						legend="Session Expired"
+						className="session-expired-fieldset"
+					>
+						<div
+							className="login-prompt-content"
+							style={{ textAlign: "center" }}
+						>
+							<Avatar
+								icon="pi pi-user"
+								className="avatar-error"
+								shape="circle"
+								aria-label="User Icon"
+							/>
+							<h2 className="session-expired-text" tabIndex={0}>
+								Please Login again via SSO
+							</h2>
+						</div>
+					</Fieldset>
 				</div>
 			)}
 
-			{/* Dashboard Info */}
-			<Divider align="left" hidden={!page_hide}>
+			{/* Welcome Banner */}
+			{!page_hide && (
+				// <section
+				// 	className="welcome-banner"
+				// 	aria-live="polite"
+				// 	aria-atomic="true"
+				// 	aria-label="Welcome message"
+				// >
 				<span
-					className="p-tag"
-					style={{ backgroundColor: "#000", fontSize: "large" }}
+					className="scrolling-text"
+					tabIndex={0}
+					style={{ marginTop: "1rem" }}
 				>
-					<Avatar
-						icon="pi pi-sitemap"
-						style={{ backgroundColor: "#000", color: "#fff" }}
+					Welcome&nbsp;
+					<strong>
+						Sh. {Person_Name} ({User_id})
+					</strong>
+					&nbsp;of&nbsp;<strong>{Department}</strong>
+				</span>
+				// </section>
+			)}
+
+			{/* Dashboard Info */}
+			<Divider align="left" hidden={page_hide} style={{ marginTop: "-1rem" }}>
+				<span className="dashboard-header">
+					{/* <Avatar
+						icon="pi pi-Home"
 						shape="square"
-					/>
+						className="dashboard-header-avatar"
+						aria-hidden="true"
+					/> */}
 					Dashboard
 				</span>
 			</Divider>
 
+			{/* Dashboard Info (unchanged) */}
 			{!page_hide && (
-				<div className="dashboard-info-row">
-					<div className="dashboard-info-item">
-						<strong>Scada DB Up-To:</strong>
-						<div>{scada_db_date?.Date || "-"}</div>
-					</div>
-					<div className="dashboard-info-item">
-						<strong>Meter DB Up-To:</strong>
-						<div>{meter_date?.date || "-"}</div>
-					</div>
-					<div className="dashboard-info-item">
-						<strong>Meter Folder Up-To:</strong>
+				<section
+					className="dashboard-info-row"
+					aria-label="Dashboard info section"
+				>
+					<div
+						className="dashboard-info-item"
+						tabIndex={0}
+						role="group"
+						aria-label="Scada DB Up-To:"
+					>
+						<Avatar
+							icon="pi pi-database"
+							style={{
+								backgroundColor: "#1976d2",
+								color: "#fff",
+								marginRight: 12,
+							}}
+							aria-hidden="true"
+						/>
 						<div>
-							{meter_folder_date && meter_folder_date.length > 0
-								? meter_folder_date[0].meter_folder_date
-								: "-"}
+							<span className="info-label">Scada DB Up-To:</span>
+							<div className="info-value">{scada_db_date?.Date || "-"}</div>
+						</div>
+					</div>
+					<div
+						className="dashboard-info-item"
+						tabIndex={0}
+						role="group"
+						aria-label="Meter DB Up-To:"
+					>
+						<Avatar
+							icon="pi pi-server"
+							style={{
+								backgroundColor: "#388e3c",
+								color: "#fff",
+								marginRight: 12,
+							}}
+							aria-hidden="true"
+						/>
+						<div>
+							<span className="info-label">Meter DB Up-To:</span>
+							<div className="info-value">{meter_date?.date || "-"}</div>
+						</div>
+					</div>
+					<div
+						className="dashboard-info-item"
+						tabIndex={0}
+						role="group"
+						aria-label="Meter Folder Up-To:"
+					>
+						<Avatar
+							icon="pi pi-folder-open"
+							style={{
+								backgroundColor: "#fbc02d",
+								color: "#fff",
+								marginRight: 12,
+							}}
+							aria-hidden="true"
+						/>
+						<div>
+							<span className="info-label">Meter Folder Up-To:</span>
+							<div className="info-value">
+								{meter_folder_date && meter_folder_date.length > 0
+									? meter_folder_date[0].meter_folder_date
+									: "-"}
+							</div>
 						</div>
 					</div>
 					<div className="dashboard-info-item">
@@ -963,288 +1011,453 @@ function Dashboard(params) {
 							raised
 							severity="danger"
 							label="Delete Folder Files"
-							icon="pi pi-delete-left"
+							icon="pi pi-trash"
 							onClick={() => {
 								folder_delete();
 								setBlocked(true);
 								setloading_show(false);
 							}}
+							style={{ minWidth: 160, fontWeight: 600 }}
+							aria-label="Delete Folder Files"
 						/>
 					</div>
-					<style>
-						{`
-							.dashboard-info-row {
-								display: flex;
-								flex-wrap: wrap;
-								justify-content: space-between;
-								align-items: center;
-								gap: 1.5rem;
-								margin-bottom: 2rem;
-								background: #fff;
-								padding-left: 1.5rem;
-								padding-right: 1rem;
-								border-radius: 8px;
-								box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-							}
-							.dashboard-info-item {
-								min-width: 180px;
-								margin-bottom: 0.5rem;
-								font-size: 1rem;
-							}
-						`}
-					</style>
-				</div>
+				</section>
 			)}
 
-			{/* Charts Section */}
-			<Divider align="center" hidden={!page_hide}>
-				<span
-					className="p-tag"
-					style={{ backgroundColor: "#000", fontSize: "large" }}
-				>
-					<Avatar
-						icon="pi pi-chart-pie"
-						style={{ backgroundColor: "#000", color: "#fff" }}
-						shape="square"
-					/>
-					Charts
-				</span>
-			</Divider>
-
+			{/* Charts Section with your 4 rows layout */}
 			{!page_hide && (
-				<div
+				<section
 					className="charts-section"
-					style={{ marginTop: "-3rem" }}
-					hidden={!loading_show}
+					aria-label="Charts and controls"
+					style={{ marginTop: "-3%" }}
 				>
-					<div className="charts-row">
-						<div className="charts-controls">
+					{/* Row 1: Main chart controls */}
+					<div className="charts-controls-row">
+						<div className="charts-control">
+							<label htmlFor="percent" className="font-bold block mb-2">
+								Percent Difference:
+							</label>
+							<InputNumber
+								showButtons
+								step={1}
+								size={2}
+								inputId="percent"
+								value={error_percent}
+								onValueChange={(e) => seterror_percent(e.value)}
+								suffix=" %"
+								max={100}
+								min={0}
+								style={{ width: 120 }}
+							/>
+						</div>
+
+						<div className="charts-control">
+							<label htmlFor="blocks" className="font-bold block mb-2">
+								Number of Blocks:
+							</label>
+							<InputNumber
+								showButtons
+								step={1}
+								size={5}
+								inputId="blocks"
+								value={blocks}
+								onValueChange={(e) => setblocks(e.value)}
+								suffix=" Blocks"
+								min={0}
+								max={1000}
+								style={{ width: 140 }}
+							/>
+						</div>
+
+						<div className="charts-control" style={{ minWidth: 180 }}>
+							<label htmlFor="daterange" className="font-bold block mb-2">
+								Date Range:
+							</label>
+							<Calendar
+								maxDate={maxdate}
+								showIcon
+								value={dates}
+								onChange={(e) => setDates(e.value)}
+								selectionMode="range"
+								readOnlyInput
+								hideOnRangeSelection
+								dateFormat="dd-mm-yy"
+								placeholder="Select Date Range"
+								inputId="daterange"
+								style={{ width: "50%" }}
+							/>
+						</div>
+					</div>
+
+					{/* Row 2: Two charts side by side */}
+					<div className="charts-visuals-row" style={{ marginTop: "-3%" }}>
+						<div className="chart-container">
+							<Chart
+								type="pie"
+								data={chartData}
+								options={chartOptions}
+								style={{ width: "30vh", height: "40vh" }}
+							/>
+						</div>
+
+						<div className="chart-container">
+							<Chart
+								type="line"
+								data={chartData1}
+								options={chartOptions1}
+								style={{ width: "150vh", height: "40vh" }}
+							/>
+						</div>
+					</div>
+
+					{/* Row 3: Secondary controls horizontally */}
+
+					{/* Row 4: Full width block-wise error analysis chart */}
+					<div className="blockwise-chart-container">
+						<div
+							className="charts-controls-row secondary-controls"
+							style={{ marginBottom: "-5%" }}
+						>
 							<div className="charts-control">
-								<label htmlFor="percent" className="font-bold block mb-2">
-									Error Percent:
+								<label htmlFor="percent2" className="font-bold block mb-2">
+									Percent Difference:
 								</label>
 								<InputNumber
 									showButtons
 									step={1}
 									size={2}
-									inputId="percent"
-									value={error_percent}
-									onValueChange={(e) => seterror_percent(e.value)}
+									inputId="percent2"
+									value={one_error}
+									onValueChange={(e) => setOneError(e.value)}
 									suffix=" %"
 									max={100}
 									min={0}
+									style={{ width: 120 }}
 								/>
 							</div>
-							<div className="charts-control">
-								<label htmlFor="blocks" className="font-bold block mb-2">
-									Number of Blocks:
-								</label>
-								<InputNumber
-									showButtons
-									step={1}
-									size={5}
-									inputId="blocks"
-									value={blocks}
-									onValueChange={(e) => setblocks(e.value)}
-									suffix=" Blocks"
-									min={0}
-									max={1000}
-								/>
-							</div>
-							<div className="charts-control">
-								<label htmlFor="daterange" className="font-bold block mb-2">
-									Date Range:
+
+							<div className="charts-control" style={{ minWidth: 160 }}>
+								<label htmlFor="onedate" className="font-bold block mb-2">
+									Date:
 								</label>
 								<Calendar
-									maxDate={maxdate}
 									showIcon
-									value={dates}
-									onChange={(e) => setDates(e.value)}
-									selectionMode="range"
+									value={onedate}
+									onChange={(e) => setOnedate(e.value)}
+									maxDate={maxdate}
 									readOnlyInput
-									hideOnRangeSelection
+									hideOnDateTimeSelect
 									dateFormat="dd-mm-yy"
-									placeholder="Select Date Range"
-									inputId="daterange"
+									placeholder="Select Date"
+									inputId="onedate"
+									style={{ width: "100%" }}
 								/>
 							</div>
 						</div>
-						<div className="charts-visuals">
-							<div className="chart-container">
-								<Chart
-									type="pie"
-									data={chartData}
-									options={chartOptions}
-									style={{ width: "40vh", height: "40vh" }}
-									className="w-auto"
-								/>
-							</div>
-							<div className="chart-container">
-								<Chart
-									type="line"
-									data={chartData1}
-									options={chartOptions1}
-									style={{ width: "120vh", height: "42vh" }}
-								/>
-							</div>
-							{/* <div className="chart-label">
-									Tie-Lines Error Analysis (Bar & Line Chart)
-								</div> */}
-						</div>
-					</div>
-
-					<Divider align="left" hidden={!page_hide}></Divider>
-
-					<div className="charts-row" hidden={!loading_show}>
-						<label htmlFor="percent" className="font-bold block mb-2">
-							Error Percent:
-						</label>
-						<InputNumber
-							showButtons
-							step={1}
-							size={2}
-							inputId="percent"
-							value={one_error}
-							onValueChange={(e) => setOneError(e.value)}
-							suffix=" %"
-							max={100}
-							min={0}
-						/>
-
-						<label htmlFor="daterange" className="font-bold block mb-2">
-							Date :
-						</label>
-						<Calendar
-							showIcon
-							value={onedate}
-							onChange={(e) => setOnedate(e.value)}
-							maxDate={maxdate}
-							readOnlyInput
-							hideOnDateTimeSelect
-							dateFormat="dd-mm-yy"
-							placeholder="Select Date"
+						<Chart
+							type="line"
+							data={chartData2}
+							options={chartOptions2}
+							style={{ width: "100%", height: "60vh", minWidth: 400 }}
 						/>
 					</div>
-					<div className="charts-row" hidden={!loading_show}>
-						<div className="chart-container">
-							<Chart
-								type="line"
-								data={chartData2}
-								options={chartOptions2}
-								style={{ width: "200vh", height: "70vh" }}
-							/>
-						</div>
-					</div>
-
-					<style>
-						{`
-							.charts-section {
-								background: #fff;
-								padding: 2rem 1rem;
-								border-radius: 8px;
-								box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-								margin-bottom: 2rem;
-							}
-							.charts-row {
-								display: flex;
-								flex-direction: column;
-								gap: 2rem;
-							}
-							@media (min-width: 900px) {
-								.charts-row {
-									flex-direction: row;
-									align-items: flex-start;
-								}
-							}
-							.charts-controls {
-								display: flex;
-								flex-direction: column;
-								gap: 1.5rem;
-								flex: 1 1 300px;
-								max-width: 350px;
-							}
-							.charts-control {
-								margin-bottom: 0.5rem;
-							}
-							.charts-visuals {
-								display: flex;
-								flex-direction: row;
-								gap: 2rem;
-								justify-content: center;
-								align-items: flex-start;
-								flex: 2 1 500px;
-							}
-							.chart-container {
-								display: flex;
-								flex-direction: column;
-								align-items: center;
-								background: #f9f9f9;
-								// padding: 1rem 1.5rem;
-								border-radius: 8px;
-								box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-							}
-							.chart-label {
-								text-align: center;
-								margin-top: 0.5rem;
-								font-weight: bold;
-								font-size: 1rem;
-								color: #333;
-							}
-						`}
-					</style>
-				</div>
+				</section>
 			)}
 
-			<div className="card" hidden={loading_show}>
-				<div className="flex flex-wrap">
-					<div className="w-full md:w-6 p-3">
-						<Skeleton className="mb-2"></Skeleton>
-						<Skeleton width="10rem" className="mb-2"></Skeleton>
-						<Skeleton width="7rem" className="mb-2"></Skeleton>
-						<Skeleton height="8rem" className="mb-2"></Skeleton>
-						<Skeleton width="10rem" height="4rem"></Skeleton>
-					</div>
-					<div className="w-full md:w-6 p-3">
-						<Skeleton className="mb-2" borderRadius="16px"></Skeleton>
-						<Skeleton
-							width="10rem"
-							className="mb-2"
-							borderRadius="16px"
-						></Skeleton>
-						<Skeleton
-							width="5rem"
-							borderRadius="16px"
-							className="mb-2"
-						></Skeleton>
-						<Skeleton
-							height="2rem"
-							className="mb-2"
-							borderRadius="16px"
-						></Skeleton>
-						<Skeleton
-							width="10rem"
-							height="4rem"
-							borderRadius="16px"
-						></Skeleton>
-					</div>
-					<div className="w-full md:w-6 p-3">
-						<div className="flex align-items-end">
-							<Skeleton size="16rem" className="mr-2"></Skeleton>
-							<Skeleton size="7rem" className="mr-2"></Skeleton>
-							<Skeleton size="10rem" className="mr-2"></Skeleton>
-							<Skeleton size="5rem"></Skeleton>
-						</div>
-					</div>
-					<div className="w-full md:w-6 p-3">
-						<div className="flex align-items-end">
-							<Skeleton shape="circle" size="7rem" className="mr-2"></Skeleton>
-							<Skeleton shape="circle" size="8rem" className="mr-2"></Skeleton>
-							<Skeleton shape="circle" size="5rem" className="mr-2"></Skeleton>
-							<Skeleton shape="circle" size="10rem"></Skeleton>
-						</div>
-					</div>
-				</div>
-			</div>
+			{/* CSS */}
+			<style jsx>{`
+				.loader-overlay {
+					position: fixed;
+					top: 0;
+					left: 0;
+					right: 0;
+					bottom: 0;
+					background: rgba(255, 255, 255, 0.9);
+					z-index: 9999;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					backdrop-filter: blur(6px);
+				}
+				.loader {
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					height: 100vh;
+				}
+				.spinner {
+					border: 8px solid #f3f3f3;
+					border-top: 8px solid #1976d2;
+					border-radius: 50%;
+					width: 210px;
+					height: 210px;
+					animation: spin 1.1s linear infinite;
+					box-shadow: 0 0 12px #1976d2;
+				}
+				.spinner-shadow {
+					box-shadow: 0 0 30px 10px #1976d2,
+						0 8px 40px 0 rgba(25, 118, 210, 0.25),
+						0 1.5px 8px 0 rgba(0, 0, 0, 0.08);
+				}
+				@keyframes spin {
+					0% {
+						transform: rotate(0deg);
+					}
+					100% {
+						transform: rotate(360deg);
+					}
+				}
+
+				.centered-content {
+					display: flex;
+					justify-content: center;
+					align-items: center;
+					min-height: 180px;
+					padding: 1rem;
+				}
+				.session-expired-fieldset {
+					max-width: 380px;
+					margin: auto;
+					// box-shadow: 0 3px 14px rgba(244, 67, 54, 0.3);
+					border-radius: 14px;
+					border: 1px solid #f44336;
+				}
+				.avatar-error {
+					background-color: #f44336 !important;
+					color: #fff !important;
+					margin-bottom: 16px;
+					width: 64px !important;
+					height: 64px !important;
+				}
+				.session-expired-text {
+					margin: 0;
+					color: #f44336;
+					font-weight: 700;
+				}
+
+				.welcome-banner {
+					width: 100%;
+					overflow: hidden;
+					background: linear-gradient(90deg, #e3f2fd 0%, #fce4ec 100%);
+					padding: 0.8rem 0;
+					border-radius: 16px;
+					margin-bottom: 2rem;
+					// box-shadow: 0 3px 18px rgba(0, 0, 0, 0.07);
+					font-size: 1.25rem;
+					font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+					color: #222;
+				}
+				.scrolling-text {
+					display: inline-block;
+					padding-left: 100%;
+					white-space: nowrap;
+					animation: scroll-left 16s linear infinite;
+					font-weight: 600;
+					letter-spacing: 0.6px;
+				}
+				.scrolling-text:focus {
+					animation-play-state: paused;
+					outline: 2px solid #1976d2;
+					border-radius: 4px;
+				}
+				@keyframes scroll-left {
+					0% {
+						transform: translateX(0);
+					}
+					100% {
+						transform: translateX(-100%);
+					}
+				}
+
+				.dashboard-header,
+				.charts-header {
+					background: linear-gradient(90deg, #1976d2 0%, #d81b60 100%);
+					font-size: 1.3rem;
+					color: #fff;
+					border-radius: 10px;
+					padding: 0.5rem 1.6rem;
+					font-weight: 700;
+					display: inline-flex;
+					align-items: center;
+					gap: 10px;
+					// box-shadow: 0 3px 14px rgba(216, 27, 96, 0.3);
+					user-select: none;
+				}
+				.dashboard-header-avatar,
+				.charts-header-avatar {
+					background-color: #fff !important;
+					color: inherit !important;
+					width: 36px !important;
+					height: 36px !important;
+				}
+
+				.dashboard-info-row {
+					display: flex;
+					// flex-wrap: wrap;
+					justify-content: flex-start;
+					gap: 15%;
+					margin-bottom: 2rem;
+					margin-top: -2rem;
+					// background: linear-gradient(90deg, #f5f7fa 0%, #e3f0ff 100%);
+					padding: 1.5rem 2.5rem;
+					border-radius: 18px;
+					// box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+					transition: background 0.3s ease;
+				}
+				.dashboard-info-row:hover {
+					// background: linear-gradient(90deg, #eaf3ff 0%, #fce4ec 100%);
+				}
+
+				.dashboard-info-item {
+					display: flex;
+					align-items: center;
+					gap: 1rem;
+					min-width: 240px;
+					font-size: 1.1rem;
+					background: #fff;
+					padding: 1rem 1.6rem;
+					border-radius: 14px;
+					// box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+					transition: box-shadow 0.3s ease;
+					cursor: default;
+				}
+				.dashboard-info-item:focus-within,
+				.dashboard-info-item:hover {
+					// box-shadow: 0 6px 20px rgba(25, 118, 210, 0.3);
+				}
+				.info-label {
+					font-weight: 700;
+					color: #1976d2;
+					font-size: 1rem;
+				}
+				.info-value {
+					font-size: 1.15rem;
+					color: #222;
+					font-weight: 600;
+				}
+
+				.charts-section {
+					background: linear-gradient(90deg, #f5f7fa 0%, #e3f0ff 100%);
+					padding: 2.5rem 1.5rem;
+					border-radius: 18px;
+					// box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+					margin-bottom: 3rem;
+					display: flex;
+					flex-direction: column;
+					gap: 2.5rem;
+				}
+
+				/* Row 1 & Row 3 controls style */
+				.charts-controls-row {
+					display: flex;
+					flex-wrap: nowrap;
+					gap: 2rem;
+					justify-content: flex-start;
+					align-items: flex-end;
+					background: #fff;
+					padding: 1.5rem 2rem;
+					border-radius: 14px;
+					// box-shadow: 0 3px 14px rgba(0, 0, 0, 0.04);
+					max-width: 100%;
+					overflow-x: auto;
+				}
+
+				.charts-controls-row.secondary-controls {
+					max-width: 400px; /* smaller row for second controls */
+				}
+
+				.charts-control {
+					flex: 1 1 auto;
+					min-width: 140px;
+					margin-bottom: 0;
+				}
+
+				.charts-control label {
+					display: block;
+					margin-bottom: 0.4rem;
+					font-weight: 700;
+					color: #1976d2;
+				}
+
+				/* Row 2: charts side by side */
+				.charts-visuals-row {
+					display: flex;
+					flex-wrap: nowrap;
+					gap: 2.5rem;
+					justify-content: center;
+					align-items: flex-start;
+				}
+
+				.chart-container {
+					flex: 1 1 auto;
+					min-width: 320px;
+					background: #fff;
+					padding: 1.5rem 2rem;
+					border-radius: 14px;
+					// box-shadow: 0 3px 14px rgba(0, 0, 0, 0.04);
+					transition: box-shadow 0.3s ease;
+				}
+
+				.chart-container:hover {
+					box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+				}
+
+				.chart-title {
+					text-align: center;
+					margin-bottom: 1rem;
+					font-weight: 700;
+					font-size: 1.15rem;
+					color: #1976d2;
+					letter-spacing: 0.5px;
+				}
+
+				/* Row 4: blockwise chart full width */
+				.blockwise-chart-container {
+					background: #fff;
+					border-radius: 14px;
+					padding: 1.5rem 2rem;
+					// box-shadow: 0 3px 14px rgba(0, 0, 0, 0.04);
+					min-width: 320px;
+				}
+
+				/* Responsive adjustments */
+				@media (max-width: 900px) {
+					.charts-controls-row,
+					.charts-controls-row.secondary-controls {
+						flex-wrap: wrap;
+						gap: 1.5rem;
+						justify-content: center;
+					}
+					.charts-control {
+						min-width: 100%;
+					}
+					.charts-visuals-row {
+						flex-wrap: wrap;
+					}
+					.chart-container,
+					.blockwise-chart-container {
+						width: 100% !important;
+						min-width: unset;
+					}
+				}
+
+				.card {
+					background: #fff;
+					border-radius: 16px;
+					padding: 1rem 2rem;
+					// box-shadow: 0 4px 25px rgba(0, 0, 0, 0.06);
+				}
+
+				/* Utility classes */
+				.visually-hidden {
+					position: absolute !important;
+					height: 1px;
+					width: 1px;
+					overflow: hidden;
+					clip: rect(1px, 1px, 1px, 1px);
+					white-space: nowrap;
+				}
+			`}</style>
 		</>
 	);
 }
