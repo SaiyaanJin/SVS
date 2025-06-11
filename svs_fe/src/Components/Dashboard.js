@@ -866,7 +866,10 @@ function Dashboard(params) {
 						aria-live="assertive"
 						aria-atomic="true"
 					>
-						<div className="spinner spinner-shadow"></div>
+						<div className="spinner spinner-shadow">
+							{/* <div className="spinner-half spinner-blue"></div>
+							<div className="spinner-half spinner-orange"></div> */}
+						</div>
 						<span className="visually-hidden">Loading...</span>
 					</div>
 				</div>
@@ -1191,19 +1194,39 @@ function Dashboard(params) {
 					height: 100vh;
 				}
 				.spinner {
-					border: 8px solid #f3f3f3;
-					border-top: 8px solid #1976d2;
-					border-radius: 50%;
-					width: 210px;
-					height: 210px;
-					animation: spin 1.1s linear infinite;
-					box-shadow: 0 0 12px #1976d2;
+					position: relative;
+					width: 225px;
+					height: 225px;
+					display: flex;
+					align-items: center;
+					justify-content: center;
 				}
 				.spinner-shadow {
 					box-shadow: 0 0 30px 10px #1976d2,
 						0 8px 40px 0 rgba(25, 118, 210, 0.25),
 						0 1.5px 8px 0 rgba(0, 0, 0, 0.08);
 				}
+				.spinner-half {
+					position: absolute;
+					top: 0;
+					left: 0;
+					width: 210px;
+					height: 210px;
+					border-radius: 50%;
+					border: 8px solid transparent;
+					border-top: 8px solid;
+					animation: spin 1.1s linear infinite;
+				}
+				// .spinner-blue {
+				// 	border-top-color: #1976d2;
+				// 	z-index: 2;
+				// 	animation-delay: 0s;
+				// }
+				// .spinner-orange {
+				// 	border-top-color: #ff9800;
+				// 	z-index: 1;
+				// 	animation-delay: 0.55s;
+				// }
 				@keyframes spin {
 					0% {
 						transform: rotate(0deg);
