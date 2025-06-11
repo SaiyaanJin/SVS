@@ -11,6 +11,7 @@ import { BlockUI } from "primereact/blockui";
 import { Chart } from "primereact/chart";
 import { Calendar } from "primereact/calendar";
 import { InputNumber } from "primereact/inputnumber";
+import { Skeleton } from "primereact/skeleton";
 import "../cssfiles/Animation.css";
 import "../cssfiles/PasswordDemo.css";
 import "primeflex/primeflex.css";
@@ -32,7 +33,7 @@ function Dashboard(params) {
 	const [Department, setDepartment] = useState();
 	// const [isAdmin, setisAdmin] = useState(false);
 	const [blocked, setBlocked] = useState(false);
-	const [loading_show, setloading_show] = useState(false);
+	const [loading_show, setloading_show] = useState(true);
 
 	const [chartData, setChartData] = useState({});
 	const [chartOptions, setChartOptions] = useState({});
@@ -584,6 +585,8 @@ function Dashboard(params) {
 	}, [dates, blocks, error_percent]);
 
 	useEffect(() => {
+		setBlocked(true);
+		setloading_show(false);
 		if (onedate) {
 			(async () => {
 				try {
@@ -596,7 +599,7 @@ function Dashboard(params) {
 
 					if (!data) return;
 					setBlocked(false);
-					setloading_show(false);
+					setloading_show(true);
 
 					const documentStyle = getComputedStyle(document.documentElement);
 
@@ -841,7 +844,7 @@ function Dashboard(params) {
 			.then((response) => {
 				alert(response.data);
 				setBlocked(false);
-				setloading_show(false);
+				setloading_show(true);
 			})
 			.catch((error) => {});
 	};
@@ -849,7 +852,7 @@ function Dashboard(params) {
 	return (
 		<>
 			{/* Loader Overlay */}
-			<div hidden={!loading_show}>
+			<div hidden={loading_show}>
 				<div className="loader">
 					<div className="spinner"></div>
 				</div>
@@ -963,8 +966,8 @@ function Dashboard(params) {
 							icon="pi pi-delete-left"
 							onClick={() => {
 								folder_delete();
-								setloading_show(true);
 								setBlocked(true);
+								setloading_show(false);
 							}}
 						/>
 					</div>
@@ -1009,7 +1012,11 @@ function Dashboard(params) {
 			</Divider>
 
 			{!page_hide && (
-				<div className="charts-section" style={{ marginTop: "-3rem" }}>
+				<div
+					className="charts-section"
+					style={{ marginTop: "-3rem" }}
+					hidden={!loading_show}
+				>
 					<div className="charts-row">
 						<div className="charts-controls">
 							<div className="charts-control">
@@ -1088,7 +1095,7 @@ function Dashboard(params) {
 
 					<Divider align="left" hidden={!page_hide}></Divider>
 
-					<div className="charts-row">
+					<div className="charts-row" hidden={!loading_show}>
 						<label htmlFor="percent" className="font-bold block mb-2">
 							Error Percent:
 						</label>
@@ -1118,7 +1125,7 @@ function Dashboard(params) {
 							placeholder="Select Date"
 						/>
 					</div>
-					<div className="charts-row">
+					<div className="charts-row" hidden={!loading_show}>
 						<div className="chart-container">
 							<Chart
 								type="line"
@@ -1187,6 +1194,57 @@ function Dashboard(params) {
 					</style>
 				</div>
 			)}
+
+			<div className="card" hidden={loading_show}>
+				<div className="flex flex-wrap">
+					<div className="w-full md:w-6 p-3">
+						<Skeleton className="mb-2"></Skeleton>
+						<Skeleton width="10rem" className="mb-2"></Skeleton>
+						<Skeleton width="7rem" className="mb-2"></Skeleton>
+						<Skeleton height="8rem" className="mb-2"></Skeleton>
+						<Skeleton width="10rem" height="4rem"></Skeleton>
+					</div>
+					<div className="w-full md:w-6 p-3">
+						<Skeleton className="mb-2" borderRadius="16px"></Skeleton>
+						<Skeleton
+							width="10rem"
+							className="mb-2"
+							borderRadius="16px"
+						></Skeleton>
+						<Skeleton
+							width="5rem"
+							borderRadius="16px"
+							className="mb-2"
+						></Skeleton>
+						<Skeleton
+							height="2rem"
+							className="mb-2"
+							borderRadius="16px"
+						></Skeleton>
+						<Skeleton
+							width="10rem"
+							height="4rem"
+							borderRadius="16px"
+						></Skeleton>
+					</div>
+					<div className="w-full md:w-6 p-3">
+						<div className="flex align-items-end">
+							<Skeleton size="16rem" className="mr-2"></Skeleton>
+							<Skeleton size="7rem" className="mr-2"></Skeleton>
+							<Skeleton size="10rem" className="mr-2"></Skeleton>
+							<Skeleton size="5rem"></Skeleton>
+						</div>
+					</div>
+					<div className="w-full md:w-6 p-3">
+						<div className="flex align-items-end">
+							<Skeleton shape="circle" size="7rem" className="mr-2"></Skeleton>
+							<Skeleton shape="circle" size="8rem" className="mr-2"></Skeleton>
+							<Skeleton shape="circle" size="5rem" className="mr-2"></Skeleton>
+							<Skeleton shape="circle" size="10rem"></Skeleton>
+						</div>
+					</div>
+				</div>
+			</div>
 		</>
 	);
 }
