@@ -1032,7 +1032,7 @@ function Dashboard(params) {
 					style={{ marginTop: "-3%" }}
 				>
 					{/* Row 1: Main chart controls */}
-					<div className="charts-controls-row">
+					<div className="charts-controls-row" style={{ marginTop: "-1.5%" }}>
 						<div className="charts-control">
 							<label htmlFor="percent" className="font-bold block mb-2">
 								Percent Difference:
@@ -1113,11 +1113,11 @@ function Dashboard(params) {
 					{/* Row 3: Secondary controls horizontally */}
 
 					{/* Row 4: Full width block-wise error analysis chart */}
-					<div className="blockwise-chart-container">
-						<div
-							className="charts-controls-row secondary-controls"
-							style={{ marginBottom: "-5%" }}
-						>
+					<div
+						className="blockwise-chart-container"
+						style={{ marginTop: "-1.5%" }}
+					>
+						<div className="charts-controls-row secondary-controls">
 							<div className="charts-control">
 								<label htmlFor="percent2" className="font-bold block mb-2">
 									Percent Difference:
@@ -1158,7 +1158,12 @@ function Dashboard(params) {
 							type="line"
 							data={chartData2}
 							options={chartOptions2}
-							style={{ width: "100%", height: "60vh", minWidth: 400 }}
+							style={{
+								width: "100%",
+								height: "60vh",
+								minWidth: 400,
+								marginTop: "-2%",
+							}}
 						/>
 					</div>
 				</section>
