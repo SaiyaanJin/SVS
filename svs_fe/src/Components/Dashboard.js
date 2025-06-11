@@ -293,7 +293,7 @@ function Dashboard(params) {
 								.map(([name]) => `${name} Far End`),
 						];
 					}
-
+					console.log(name_object);
 					// Chart labels and keys
 					const chartLabels = [
 						"BIHAR",
@@ -444,18 +444,19 @@ function Dashboard(params) {
 											];
 										} else {
 											if (
-												context.dataset.label === "To-End Tie-Lines with Error"
+												context.dataset.label ===
+												"To-End Tie-Lines with Difference"
 											) {
-												const names = name_object[key][0] || [];
+												const names1 = name_object[key][0] || [];
 												return [
 													`${display} To End has: ${context.parsed.y} Tie-Lines`,
-													...names,
+													...names1,
 												];
 											} else {
-												const names = name_object[key][1] || [];
+												const names2 = name_object[key][1] || [];
 												return [
 													`${display} Far End has: ${context.parsed.y} Tie-Lines`,
-													...names,
+													...names2,
 												];
 											}
 										}
@@ -913,7 +914,7 @@ function Dashboard(params) {
 				<span
 					className="scrolling-text"
 					tabIndex={0}
-					style={{ marginTop: "1rem" }}
+					style={{ marginTop: "1rem", marginBottom: "-1rem" }}
 				>
 					Welcome&nbsp;
 					<strong>
@@ -925,7 +926,7 @@ function Dashboard(params) {
 			)}
 
 			{/* Dashboard Info */}
-			<Divider align="left" hidden={page_hide} style={{ marginTop: "-1rem" }}>
+			<Divider align="left" hidden={page_hide} style={{ marginTop: "-4%" }}>
 				<span className="dashboard-header">
 					{/* <Avatar
 						icon="pi pi-Home"
