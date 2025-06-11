@@ -23,6 +23,12 @@ import concurrent.futures
 app = Flask(__name__)
 CORS(app)
 
+global week_names
+global day_names
+
+week_names = []
+day_names = []
+
 def my_max_min_function(somelist):
     if not somelist:
         return [0], [0], 0
@@ -81,6 +87,11 @@ Scada_database, meter_table, mapping_table = ScadaCollection()
 def names(startDate, endDate, blocks, error_percentage):
     folder = 'no'
     offset = 20
+
+    global week_names
+
+    if len(week_names) > 0:
+        return week_names
 
     def clean_keydata(keydata):
         return [item for item in keydata if item.get('Deleted', 'No') != "Yes"]
@@ -265,12 +276,19 @@ def names(startDate, endDate, blocks, error_percentage):
     for key in constituent_keys:
         final_data_to_send[key] = lookupDictionary[key]
     final_data_to_send['total_count'] = [total_count, len(keydata)-41]  # Assuming 41 is the number of non-constituent keys
+
+    week_names = final_data_to_send
     return final_data_to_send
 
 
 def daywise_names(date, error_percentage):
     folder = 'no'
     offset = 20
+
+    global day_names
+
+    if len(day_names) > 0:
+        return day_names
 
     def clean_keydata(keydata):
         return [item for item in keydata if item.get('Deleted', 'No') != "Yes"]
@@ -451,5 +469,7 @@ def daywise_names(date, error_percentage):
                 return 0.0
         final_data_to_send[i] = sorted(final_data_to_send[i], key=extract_percentage, reverse=True)
         percent_list.append(extract_percentage(final_data_to_send[i][0]) if len(final_data_to_send[i])>0 else 0.0)
+
+    day_names = [final_data_to_send, count_list, base_list, percent_list]
 
     return [final_data_to_send, count_list, base_list, percent_list]
