@@ -214,7 +214,7 @@ function Dashboard(params) {
 							},
 							title: {
 								display: true,
-								text: "Tie-Lines Summary (332 Tie-Lines)",
+								text: "Tie-Lines Summary (298 Tie-Lines)",
 								color: documentStyle.getPropertyValue("--text-color"),
 								font: { size: 20, weight: "bold" },
 								padding: { top: 10, bottom: 30 },

@@ -90,8 +90,8 @@ def names(startDate, endDate, blocks, error_percentage):
 
     global week_names
 
-    if len(week_names) > 0:
-        return week_names
+    if week_names and week_names[:5] == [week_names[0], startDate, endDate, blocks, error_percentage]:
+        return week_names[0]
 
     def clean_keydata(keydata):
         return [item for item in keydata if item.get('Deleted', 'No') != "Yes"]
@@ -218,9 +218,10 @@ def names(startDate, endDate, blocks, error_percentage):
         scada_far = get_data(Key_Far_End, scada_data_dict) if valid_far_end else np.zeros(len(date_range) * 96, dtype=np.float32)
         meter_far = get_data(Meter_Far_End, meter_data_dict) if valid_far_end else np.zeros(len(date_range) * 96, dtype=np.float32)
 
-        if Feeder_Name in drawal_feeders:
-            meter_to = np.abs(meter_to)
-            meter_far = np.abs(meter_far)
+        if Feeder_Name in drawal_feeders or "ICT" in Feeder_Name.upper():
+            # meter_to = np.abs(meter_to)
+            # meter_far = np.abs(meter_far)
+            return
 
         error_pct = int(error_percentage)
         block_limit = int(blocks)
@@ -273,11 +274,19 @@ def names(startDate, endDate, blocks, error_percentage):
     with ThreadPoolExecutor(max_workers=32) as executor:
         list(executor.map(process_item, keydata))
 
+    all_names= []
+
     for key in constituent_keys:
         final_data_to_send[key] = lookupDictionary[key]
-    final_data_to_send['total_count'] = [total_count, len(keydata)-41]  # Assuming 41 is the number of non-constituent keys
 
-    week_names = final_data_to_send
+        for item in lookupDictionary[key]:
+            all_names.append(item[0])
+
+    len(all_names)- len(set(all_names))
+
+    final_data_to_send['total_count'] = [total_count-(len(all_names)- len(set(all_names))), len(keydata)-75]  # Assuming 41 is the number of non-constituent keys
+
+    week_names = [final_data_to_send,startDate, endDate, blocks, error_percentage]
     return final_data_to_send
 
 
@@ -287,8 +296,8 @@ def daywise_names(date, error_percentage):
 
     global day_names
 
-    if len(day_names) > 0:
-        return day_names
+    if len(day_names) > 0 and day_names[1]== date and day_names[2]== error_percentage:
+        return day_names[0]
 
     def clean_keydata(keydata):
         return [item for item in keydata if item.get('Deleted', 'No') != "Yes"]
@@ -451,7 +460,8 @@ def daywise_names(date, error_percentage):
                     if abs(x - y) > 5:
                         far_percent = abs(round((100 * (x - y) / abs(max(x, y))), 2))
                         if far_percent > error_pct:
-                            final_data_to_send[i].append(Feeder_Name+" Far End: "+ str(far_percent)+" %")
+                            if not any(region in Feeder_Name.upper() for region in ["(SR)", "(NR)", "(WR)", "(NER)", "(NEPAL)"]):
+                                final_data_to_send[i].append(Feeder_Name+" Far End: "+ str(far_percent)+" %")
 
     with ThreadPoolExecutor(max_workers=32) as executor:
         list(executor.map(process_item, keydata))
@@ -470,6 +480,6 @@ def daywise_names(date, error_percentage):
         final_data_to_send[i] = sorted(final_data_to_send[i], key=extract_percentage, reverse=True)
         percent_list.append(extract_percentage(final_data_to_send[i][0]) if len(final_data_to_send[i])>0 else 0.0)
 
-    day_names = [final_data_to_send, count_list, base_list, percent_list]
+    day_names = [[final_data_to_send, count_list, base_list, percent_list],date, error_percentage]
 
     return [final_data_to_send, count_list, base_list, percent_list]
