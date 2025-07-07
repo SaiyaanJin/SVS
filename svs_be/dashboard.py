@@ -266,10 +266,11 @@ def names(startDate, endDate, blocks, error_percentage):
 
         if count_far > block_limit:
             constituent_name = To_Feeder
-            if constituent_name in constituent_keys and [Feeder_Name, 1] not in lookupDictionary[constituent_name]:
-                lookupDictionary[constituent_name].append([Feeder_Name, 1])
-                if constituent_name != 'MIS_CALC_TO':
-                    total_count += 1
+            if not any(region in Feeder_Name.upper() for region in ["(SR)", "(NR)", "(WR)", "(NER)", "(NEPAL)"]):
+                if constituent_name in constituent_keys and [Feeder_Name, 1] not in lookupDictionary[constituent_name]:
+                    lookupDictionary[constituent_name].append([Feeder_Name, 1])
+                    if constituent_name != 'MIS_CALC_TO':
+                        total_count += 1
 
     with ThreadPoolExecutor(max_workers=32) as executor:
         list(executor.map(process_item, keydata))
@@ -422,9 +423,10 @@ def daywise_names(date, error_percentage):
         scada_far = get_data(Key_Far_End, scada_data_dict) if valid_far_end else np.zeros(len(date_range) * 96, dtype=np.float32)
         meter_far = get_data(Meter_Far_End, meter_data_dict) if valid_far_end else np.zeros(len(date_range) * 96, dtype=np.float32)
 
-        if Feeder_Name in drawal_feeders:
-            meter_to = np.abs(meter_to)
-            meter_far = np.abs(meter_far)
+        if Feeder_Name in drawal_feeders or "ICT" in Feeder_Name.upper():
+            # meter_to = np.abs(meter_to)
+            # meter_far = np.abs(meter_far)
+            return
 
         if Feeder_From == "MIS_CALC_TO" or To_Feeder == "MIS_CALC_TO":
             return

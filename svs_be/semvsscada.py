@@ -18,6 +18,7 @@ app = Flask(__name__)
 
 CORS(app)
 
+svsreportdata= []
 
 def my_max_min_function(somelist):
 
@@ -1115,6 +1116,8 @@ def SEMvsSCADA():
 @app.route('/SEMvsSCADAreport', methods=['GET', 'POST'])
 def SEMvsSCADAreport():
 
+    global svsreportdata
+
     startDate = request.args['startDate']
     startDate_obj = datetime.strptime(startDate, '%Y-%m-%d')
     endDate = request.args['endDate']
@@ -1122,8 +1125,15 @@ def SEMvsSCADAreport():
     folder = request.args['folder']
     offset = int(request.args['offset'])
 
+    if len(svsreportdata)>0 and svsreportdata[1]== startDate and svsreportdata[2]== endDate and svsreportdata[3]== offset:
+        return jsonify(svsreportdata[0])
+
     data_to_send = svsreport(startDate, startDate_obj,
                              endDate, time, folder, offset)
+    svsreportdata.append(data_to_send)
+    svsreportdata.append(startDate)
+    svsreportdata.append(endDate)
+    svsreportdata.append(offset)
 
     return jsonify(data_to_send)
 
