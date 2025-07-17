@@ -5,7 +5,7 @@ from datetime import date, timedelta, datetime, timezone
 from flask import Flask, jsonify, Response, send_file, request
 from flask_cors import CORS
 import json
-
+from flask_caching import Cache
 from flask_cors import CORS
 from zipfile import ZipFile
 from svs_report import *
@@ -17,6 +17,12 @@ from dashboard import *
 app = Flask(__name__)
 
 CORS(app)
+
+# Configure caching (SimpleCache for dev; use Redis for production)
+app.config['CACHE_TYPE'] = 'SimpleCache'  # Or 'RedisCache'
+app.config['CACHE_DEFAULT_TIMEOUT'] = 86400  # 1 day in seconds
+
+cache = Cache(app)
 
 svsreportdata= []
 
@@ -130,24 +136,37 @@ def dashboard():
 
 @app.route('/dashboard_names', methods=['GET', 'POST'])
 def dashboard_names():
-
     startDate = request.args['startDate']
     endDate = request.args['endDate']
     blocks = request.args['blocks']
     error_percentage = request.args['error_percent']
 
-    response= names(startDate, endDate, blocks, error_percentage)
+    cache_key = f"dashboard_names_{startDate}_{endDate}_{blocks}_{error_percentage}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        print("cache")
+        return jsonify(cached_data)
 
+    response = names(startDate, endDate, blocks, error_percentage)
+    cache.set(cache_key, response, timeout=604800)
+    print("non-cache")
     return jsonify(response)
+
 
 @app.route('/dashboard_names_daywise', methods=['GET', 'POST'])
 def dashboard_names_daywise():
-
     date = request.args['date']
     error_percentage = request.args['error_percent']
 
-    response = daywise_names(date, error_percentage)
+    cache_key = f"dashboard_names_daywise_{date}_{error_percentage}"
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        print("cache")
+        return jsonify(cached_data)
 
+    response = daywise_names(date, error_percentage)
+    cache.set(cache_key, response, timeout=604800)
+    print("non-cache")
     return jsonify(response)
 
     # /////////////////////////////////////////////////////////bashboard////////////////////////////////
@@ -1115,26 +1134,28 @@ def SEMvsSCADA():
 
 @app.route('/SEMvsSCADAreport', methods=['GET', 'POST'])
 def SEMvsSCADAreport():
-
-    global svsreportdata
-
     startDate = request.args['startDate']
     startDate_obj = datetime.strptime(startDate, '%Y-%m-%d')
     endDate = request.args['endDate']
-    time = int(request.args['time'])
+    time_val = int(request.args['time'])
     folder = request.args['folder']
     offset = int(request.args['offset'])
 
-    if len(svsreportdata)>0 and svsreportdata[1]== startDate and svsreportdata[2]== endDate and svsreportdata[3]== offset:
-        return jsonify(svsreportdata[0])
+    # Create a unique cache key based on the parameters
+    cache_key = f"svs_{startDate}_{endDate}_{offset}"
 
-    data_to_send = svsreport(startDate, startDate_obj,
-                             endDate, time, folder, offset)
-    svsreportdata.append(data_to_send)
-    svsreportdata.append(startDate)
-    svsreportdata.append(endDate)
-    svsreportdata.append(offset)
+    # Check cache
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        print("cache")
+        return jsonify(cached_data)
 
+    # If not cached, compute the result
+    data_to_send = svsreport(startDate, startDate_obj, endDate, time_val, folder, offset)
+
+    # Cache the result
+    cache.set(cache_key, data_to_send, timeout=604800)  # 1 week TTL
+    print("non-cache")
     return jsonify(data_to_send)
 
 

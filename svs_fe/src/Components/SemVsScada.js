@@ -61,6 +61,7 @@ function SemVsScada(params) {
 	const [blocked, setBlocked] = useState(false);
 	const [loading_show, setloading_show] = useState(false);
 	const [selectedrows, setselectedrows] = useState([]);
+	const [maxDate, setMaxDate] = useState(null);
 	ChartJS.register(...registerables, zoomPlugin);
 
 	const baseURL = process.env.REACT_APP_API_BASE_URL;
@@ -167,6 +168,16 @@ function SemVsScada(params) {
 	};
 
 	useEffect(() => {
+
+		const today = new Date();
+        const dayOfWeek = today.getDay()+7; // 0 for Sunday, 1 for Monday, ..., 6 for Saturday
+        const diffToLastSunday = dayOfWeek === 0+7 ? 7+7 : dayOfWeek; // If today is Sunday, last Sunday was 7 days ago. Otherwise, it was `dayOfWeek` days ago.
+        const lastSunday = new Date(today);
+        lastSunday.setDate(today.getDate() - diffToLastSunday);
+        lastSunday.setHours(23, 59, 59, 999); // Set to end of the day to include full Sunday
+
+        setMaxDate(lastSunday);
+
 		// Handle date range change and FeederFrom filter in a single effect
 		const fetchMeterCheck = async (start, end) => {
 			try {
@@ -2142,6 +2153,7 @@ function SemVsScada(params) {
 							showIcon
 							selectionMode="range"
 							readOnlyInput
+							maxDate={maxDate}
 						/>
 					</span>
 				</div>
