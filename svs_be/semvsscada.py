@@ -108,7 +108,7 @@ def dashboard():
                                           '_id': 0, 'Date': 1}, sort=list({'Date': -1}.items()), limit=1)
     scada_db_date = list(scada_db_date)
 
-    path = os.listdir("Meter_Files/")
+    path = os.listdir("E://Applications/SVS/svs_be/Meter_Files/")
 
     temp_path = []
 
@@ -144,12 +144,12 @@ def dashboard_names():
     cache_key = f"dashboard_names_{startDate}_{endDate}_{blocks}_{error_percentage}"
     cached_data = cache.get(cache_key)
     if cached_data:
-        print("cache")
+        #print("cache")
         return jsonify(cached_data)
 
     response = names(startDate, endDate, blocks, error_percentage)
     cache.set(cache_key, response, timeout=604800)
-    print("non-cache")
+    #print("non-cache")
     return jsonify(response)
 
 
@@ -161,12 +161,12 @@ def dashboard_names_daywise():
     cache_key = f"dashboard_names_daywise_{date}_{error_percentage}"
     cached_data = cache.get(cache_key)
     if cached_data:
-        print("cache")
+        #print("cache")
         return jsonify(cached_data)
 
     response = daywise_names(date, error_percentage)
     cache.set(cache_key, response, timeout=604800)
-    print("non-cache")
+    #print("non-cache")
     return jsonify(response)
 
     # /////////////////////////////////////////////////////////bashboard////////////////////////////////
@@ -256,7 +256,7 @@ def getScadaData():
 
         for it in date_range:
 
-            # print(codes)
+            # #print(codes)
 
             filter = {
                 'Date': {
@@ -382,7 +382,7 @@ def upload():
         except errors.DuplicateKeyError as e:
 
             print("SCADA File reading Problem for "+str(for_date))
-            print(e)
+            #print(e)
             # out_list.append(for_date)
             continue
 
@@ -442,7 +442,7 @@ def upload():
             except errors.DuplicateKeyError as e:
 
                 print("SCADA File reading Problem for "+str(for_date))
-                print(e)
+                #print(e)
 
             except:
                 out_list.append(for_date)
@@ -1147,7 +1147,7 @@ def SEMvsSCADAreport():
     # Check cache
     cached_data = cache.get(cache_key)
     if cached_data:
-        print("cache")
+        #print("cache")
         return jsonify(cached_data)
 
     # If not cached, compute the result
@@ -1155,7 +1155,7 @@ def SEMvsSCADAreport():
 
     # Cache the result
     cache.set(cache_key, data_to_send, timeout=604800)  # 1 week TTL
-    print("non-cache")
+    #print("non-cache")
     return jsonify(data_to_send)
 
 

@@ -100,7 +100,7 @@ function Dashboard(params) {
 							? "User Logged-out, Please login via SSO again"
 							: "Unauthorised Access, Please login via SSO again"
 					);
-					window.location = "https://sso.erldc.in:3000";
+					window.location = "https://sso.erldc.in";
 					setpage_hide(true);
 					return;
 				}
@@ -925,20 +925,16 @@ function Dashboard(params) {
 				// </section>
 			)}
 
-			{/* Dashboard Info */}
-			<Divider align="left" hidden={page_hide} style={{ marginTop: "-4%" }}>
+			
+			<Divider align="left" hidden={!page_hide} style={{ marginTop: "-4%" }}>
 				<span className="dashboard-header">
-					{/* <Avatar
-						icon="pi pi-Home"
-						shape="square"
-						className="dashboard-header-avatar"
-						aria-hidden="true"
-					/> */}
+					<Avatar icon="pi pi-home" style={{ color: "black", backgroundColor: "transparent" }} />
 					Dashboard
 				</span>
 			</Divider>
 
 			{/* Dashboard Info (unchanged) */}
+			
 			{!page_hide && (
 				<section
 					className="dashboard-info-row"
