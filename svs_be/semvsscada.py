@@ -13,6 +13,7 @@ import shutil
 from bson import json_util, ObjectId
 from flask import abort
 from dashboard import *
+from bson.json_util import dumps
 
 app = Flask(__name__)
 
@@ -21,6 +22,12 @@ CORS(app)
 # Configure caching (SimpleCache for dev; use Redis for production)
 app.config['CACHE_TYPE'] = 'SimpleCache'  # Or 'RedisCache'
 app.config['CACHE_DEFAULT_TIMEOUT'] = 86400  # 1 day in seconds
+
+# MongoDB connection
+CONNECTION_STRING1 = "mongodb://mongodb0.erldc.in:27017,mongodb1.erldc.in:27017,mongodb10.erldc.in:27017/?replicaSet=CONSERV"
+client1 = MongoClient(CONNECTION_STRING1)
+db1 = client1["mis"]
+energy_data = db1["energy_data"]
 
 cache = Cache(app)
 
@@ -80,10 +87,20 @@ def changeToFloat(x):
     else:
         return None
 
+@app.route("/api/data/today", methods=["GET"])
+def get_today_data():
+    """
+    Return all documents inserted today
+    (InsertedOn = today's date in DD-MM-YYYY format)
+    """
+    today = datetime.today().strftime("%d-%m-%Y")
+    results = energy_data.find({"InsertedOn": today}, {"_id": 0})
+    return dumps(results), 200, {"Content-Type": "application/json"}
 
 @app.route('/', methods=['GET', 'POST'])
 def working():
     return jsonify("Working")
+
 
 
 @app.route('/dashboard', methods=['GET', 'POST'])
