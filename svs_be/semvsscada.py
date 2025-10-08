@@ -345,7 +345,7 @@ def upload():
     startDateObj = datetime.strptime(startDate, "%Y-%m-%d")
     endDateObj = datetime.strptime(endDate, "%Y-%m-%d")
 
-    PATH = "http://10.3.100.24/SCADA%20Vs%20SEM/"
+    PATH = "http://10.3.200.95/SCADA%20Vs%20SEM/"
 
     out_list = []
 
