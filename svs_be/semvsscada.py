@@ -121,6 +121,13 @@ def dashboard():
                                  '_id': 0, 'date': 1}, sort=list({'date': -1}.items()), limit=1)
     meter_date = list(meter_date)
 
+    if len(meter_date)==0:
+        Data_Table = db["meterData"+str(current_year-1)]
+
+        meter_date = Data_Table.find(filter={}, projection={
+                                    '_id': 0, 'date': 1}, sort=list({'date': -1}.items()), limit=1)
+        meter_date = list(meter_date)
+
     scada_db_date = User_Input_Table.find(filter={}, projection={
                                           '_id': 0, 'Date': 1}, sort=list({'Date': -1}.items()), limit=1)
     scada_db_date = list(scada_db_date)
