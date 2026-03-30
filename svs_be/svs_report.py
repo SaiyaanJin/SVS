@@ -624,15 +624,15 @@ def gen_all_letters():
     os.makedirs(base_path, exist_ok=True)
 
     letter_tasks = [
-        (len(const_dict['pg_er1'][0]) > 0, "letters doc templates/Letter to  Powergrid_ER1.docx", 'pg_er1', 'Letter to Powergrid_ER1'),
-        (len(const_dict['pg_er2'][0]) > 0, "letters doc templates/Letter to  Powergrid_ER2.docx", 'pg_er2', 'Letter to Powergrid_ER2'),
-        (len(const_dict['pg_er3'][0]) > 0, "letters doc templates/Letter to Powergrid_Odisha_Project.docx", 'pg_er3', 'Letter to Powergrid_Odisha_Project'),
-        (len(const_dict['bh'][0]) > 0, "letters doc templates/Letter to BSPTCL.docx", 'bh', 'Letter to BSPTCL'),
-        (len(const_dict['wb'][0]) > 0, "letters doc templates/Letter to WBSETCL.docx", 'wb', 'Letter to WBSETCL'),
-        (len(const_dict['jh'][0]) > 0, "letters doc templates/Letter to JUSNL.docx", 'jh', 'Letter to JUSNL'),
-        (len(const_dict['dvc'][0]) > 0, "letters doc templates/Letter to DVC.docx", 'dvc', 'Letter to DVC'),
-        (len(const_dict['gr'][0]) > 0, "letters doc templates/Letter to OPTCL.docx", 'gr', 'Letter to OPTCL'),
-        (len(const_dict['si'][0]) > 0, "letters doc templates/Letter to Sikkim.docx", 'si', 'Letter to Sikkim'),
+        (len(const_dict['pg_er1'][0]) > 0, "letters_doc_templates/Letter to  Powergrid_ER1.docx", 'pg_er1', 'Letter to Powergrid_ER1'),
+        (len(const_dict['pg_er2'][0]) > 0, "letters_doc_templates/Letter to  Powergrid_ER2.docx", 'pg_er2', 'Letter to Powergrid_ER2'),
+        (len(const_dict['pg_er3'][0]) > 0, "letters_doc_templates/Letter to Powergrid_Odisha_Project.docx", 'pg_er3', 'Letter to Powergrid_Odisha_Project'),
+        (len(const_dict['bh'][0]) > 0, "letters_doc_templates/Letter to BSPTCL.docx", 'bh', 'Letter to BSPTCL'),
+        (len(const_dict['wb'][0]) > 0, "letters_doc_templates/Letter to WBSETCL.docx", 'wb', 'Letter to WBSETCL'),
+        (len(const_dict['jh'][0]) > 0, "letters_doc_templates/Letter to JUSNL.docx", 'jh', 'Letter to JUSNL'),
+        (len(const_dict['dvc'][0]) > 0, "letters_doc_templates/Letter to DVC.docx", 'dvc', 'Letter to DVC'),
+        (len(const_dict['gr'][0]) > 0, "letters_doc_templates/Letter to OPTCL.docx", 'gr', 'Letter to OPTCL'),
+        (len(const_dict['si'][0]) > 0, "letters_doc_templates/Letter to Sikkim.docx", 'si', 'Letter to Sikkim'),
     ]
 
     def render_letter(args):

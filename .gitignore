@@ -1,6 +1,6 @@
 node_modules/
 output/
-letters doc templates/
+\letters_doc_templates
 .env
 .env.local
 svs_report.cpython-313.pyc
@@ -8,3 +8,5 @@ Excel_Files/
 output/
 __pycache__/
 svs_report.cpython-310.pyc
+.gitignore
+pre.txt
