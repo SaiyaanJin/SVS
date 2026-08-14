@@ -331,16 +331,16 @@ def getScadaData():
 # /////////////////////////////////////////////////////Attachment File Upload & Download////////////
 
 
-@app.route('/file_upload', methods=['GET', 'POST'])
-def file_upload():
+# @app.route('/file_upload', methods=['GET', 'POST'])
+# def file_upload():
 
-    file = request.files.getlist("demo[]")
+#     file = request.files.getlist("demo[]")
 
-    zip_handle = ZipFile(file[0].file)
-    zip_handle.extractall("Meter_Files")
-    zip_handle.close()
+#     zip_handle = ZipFile(file[0].file)
+#     zip_handle.extractall("Meter_Files")
+#     zip_handle.close()
 
-    return jsonify("final_output")
+#     return jsonify("final_output")
 
 
 @app.route('/upload', methods=['GET', 'POST'])

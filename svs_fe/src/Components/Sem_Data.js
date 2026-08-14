@@ -362,7 +362,7 @@ function Sem_Data(params) {
 					SEM/Meter Data Tab
 				</span>
 			</Divider>
-			<div className="grid">
+			{/* <div className="grid">
 				<div hidden={uploadenable} className="col">
 					<label htmlFor="range">Upload AMR Data</label> <br />
 					<FileUpload
@@ -379,7 +379,7 @@ function Sem_Data(params) {
 						}
 					/>
 				</div>
-			</div>
+			</div> */}
 			<br />
 
 			<div className="flex flex-wrap gap-1 justify-content-between align-items-center">
